@@ -212,3 +212,9 @@ where `<app_name>` is the path to the directory from the `openmp-examples` direc
 ```
 make util-hrv-openocd
 ```
+
+#### AlSaqr Version ####
+`make tc-pulp`
+`make sdk-pulp`
+`make br-hrv-alsaqr`
+`make tc-llvm`
