@@ -52,6 +52,11 @@ br-hrv: check_environment
 	cp $(CURDIR)/output/br-hrv/images/rootfs.ext4 $(CURDIR)/output/hrv-rootfs.ext4
 	cp $(CURDIR)/output/br-hrv/images/rootfs.tar $(CURDIR)/output/hrv-rootfs.tar
 
+br-hrv-alsaqr: check_environment
+	mkdir -p $(CURDIR)/output/br-hrv
+	$(MAKE) O=$(CURDIR)/output/br-hrv BR2_EXTERNAL=$(ROOT) -C $(ROOT)/buildroot hrv_defconfig
+	$(MAKE) -C $(CURDIR)/output/br-hrv
+
 br-har: check_environment
 	mkdir -p $(CURDIR)/output/br-har
 	$(MAKE) O=$(CURDIR)/output/br-har BR2_EXTERNAL=$(ROOT) -C $(ROOT)/buildroot har_defconfig
