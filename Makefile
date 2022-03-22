@@ -55,7 +55,9 @@ br-hrv: check_environment
 br-hrv-alsaqr: check_environment
 	mkdir -p $(CURDIR)/output/br-hrv
 	$(MAKE) O=$(CURDIR)/output/br-hrv BR2_EXTERNAL=$(ROOT) -C $(ROOT)/buildroot hrv_defconfig
+	chmod -R u+w $(ROOT)/install
 	$(MAKE) -C $(CURDIR)/output/br-hrv
+	chmod -R u-w $(ROOT)/install
 
 br-har: check_environment
 	mkdir -p $(CURDIR)/output/br-har
