@@ -3,6 +3,11 @@ ROOT := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 PREM_BR_CMUX_CONFSTR := BR2_PACKAGE_PREM_CMUX=y
 PREM_BR_OMP_CONFSTR := BR2_PACKAGE_HERO_OPENMP_ENABLE_PREM=y
 
+CMAKE   ?= cmake-3.18.1
+CXX_LLVM = /usr/pack/gcc-9.2.0-af/linux-x64/bin/g++
+CC_LLVM  = /usr/pack/gcc-9.2.0-af/linux-x64/bin/gcc
+LLVM_SRC = $(ROOT)/toolchain/llvm-project
+
 # GLOBAL TARGETS
 .PHONY: har-exilzcu102 hrv-ediggenesys2
 har-exilzcu102: tc-har-olinux tc-pulp br-har-exilzcu102 sdk-pulp sdk-har tc-llvm
@@ -105,9 +110,13 @@ tc-pulp: check_environment
 	chmod -R u+w $(HERO_INSTALL) && ln -sf riscv32-unknown-elf $(HERO_INSTALL)/riscv32-hero-unknown-elf && chmod -R u-w $(HERO_INSTALL)
 
 # llvm
+# tc-llvm:
+# 	mkdir -p $(CURDIR)/output/tc-llvm/
+# 	cd $(CURDIR)/output/tc-llvm/ && $(ROOT)/toolchain/setup-llvm.sh Release
+
 tc-llvm:
 	mkdir -p $(CURDIR)/output/tc-llvm/
-	cd $(CURDIR)/output/tc-llvm/ && $(ROOT)/toolchain/setup-llvm.sh Release
+	cd $(CURDIR)/output/tc-llvm/ && CXX=$(CXX_LLVM) CC=$(CC_LLVM) CMAKE=$(CMAKE) $(ROOT)/toolchain/setup-llvm.sh $(LLVM_SRC)
 
 tc-llvm-debug:
 	mkdir -p $(CURDIR)/output/tc-llvm-debug/
@@ -123,7 +132,7 @@ sdk-pulp: sdk-pulp-hrv
 sdk-pulp-har: check_environment
 	$(ROOT)/pulp/setup-sdk.sh hero-arm64
 
-sdk-hrv: check_environment br-hrv
+sdk-hrv: check_environment br-hrv-alsaqr
 	cd $(CURDIR)/output/br-hrv && $(ROOT)/toolchain/install-sdk.sh
 
 sdk-har: check_environment br-har
