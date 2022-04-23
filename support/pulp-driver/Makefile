@@ -1,10 +1,13 @@
 obj-m := pulp.o
 
 ARCH          := ${KERNEL_ARCH}
-CROSS_COMPILE := ${KERNEL_CROSS_COMPILE}
+# CROSS_COMPILE := ${KERNEL_CROSS_COMPILE}
+CROSS_COMPILE := /scratch/ytortorella/hero-linux-toolchain/install/bin/riscv64-hero-linux-gnu-
+KERNEL_DIR := /scratch/ytortorella/hero-linux-toolchain/output/br-hrv/build/linux-5.10.7/
 
 ccflags-y += -DPLATFORM=${PLATFORM} ${CFLAGS} -O2 -I${HERO_LIBPULP_DIR}/inc -I${HERO_PULP_INC_DIR}
-pulp-objs := pulp_module.o pulp_ctrl.o pulp_mem.o pulp_rab.o pulp_dma.o pulp_mbox.o pulp_profile.o
+pulp-objs := pulp_module.o
+# pulp_ctrl.o pulp_mem.o pulp_rab.o pulp_dma.o pulp_mbox.o pulp_profile.o
 
 # JUNO and ZynqMP require the stripped down pulp_cache.S
 # ifeq ($(KERNEL_ARCH),arm64)
