@@ -22,30 +22,31 @@
 // ----------------------------------------------------------------------------
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Noah Huetter");
-MODULE_DESCRIPTION("Pulp driver");
+MODULE_AUTHOR("Yvan Tortorella");
+MODULE_DESCRIPTION("PULP driver");
 
 /* Match table for of_platform binding */
 static const struct of_device_id pulp_of_match[] = {
     {
-        .compatible = "eth,pulp-cluster",
+        .compatible = "hero,alsaqr",
     },
-    {},
+    {/* sentinel */},
 };
 MODULE_DEVICE_TABLE(of, pulp_of_match);
 
-#define dbg(...) printk(KERN_DEBUG "Pulp: " __VA_ARGS__)
-#define info(...) printk(KERN_INFO "Pulp: " __VA_ARGS__)
+#define dbg(...)  printk(KERN_DEBUG "PULP Debug: " __VA_ARGS__)
+#define info(...) printk(KERN_INFO "PULP Info: " __VA_ARGS__)
+#define warn(...) printk(KERN_WARNING "PULP Warning: " __VA_ARGS__)
 
-#define DEVICE_NAME "pulp"
-#define CLASS_NAME "pulp"
+#define DEVICE_NAME "PULP"
+#define CLASS_NAME "PULP"
 
 // VM_RESERVERD for mmap
 #ifndef VM_RESERVED
 #define VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
 #endif
 
-// AXI TLBs on quadrant narrow and wide ports translate 48-bit addresses, thus contain 3 uint64_t
+// AXI TLBs on PULP quadrant port translate 64-bit addresses, thus contain 3 uint64_t
 // (first, last, base) and 1 uint32_t (flags) register
 #define TLB_ENTRY_BYTES (3 * 8 + 1 * 4)
 
@@ -61,15 +62,16 @@ struct shared_mem {
 };
 
 /**
- * struct sn_cluster - Internal representation of a pulp cluster
+ * struct pulp_cluster - Internal representation of a pulp cluster
  * @dev: Pointer to device structure
  * @pbase: peripherals base
  * @soc_regs: kernel-mapped soc-control registers
  * @clint_regs: kernel-mapped clint registers
  * @l1: TCDM memory
+ * @l2: L2 SCP memory
  * @l3: Shared L3 memory
- * @sci: Pulp cluster info, shared with userspace on read
- * @list: Links it to the global sc_list
+ * @pci: PULP cluster info, shared with userspace on read
+ * @list: Links it to the global pc_list
  * @minor: Minor device number in /dev
  * @fops: Copy of a pointer to the file operations
  * @nodename: nodename of the chardev
@@ -77,12 +79,13 @@ struct shared_mem {
  * @this_device: the chardev
  * @quadrant_ctrl: handle to the associated quadrant controller
  */
-struct sn_cluster {
+struct pulp_cluster {
   struct device *dev;
   void __iomem *pbase;
   struct shared_mem l1;
+  struct shared_mem l2;
   struct shared_mem l3;
-  struct sn_cluster_info sci;
+  struct pulp_cluster_info pci;
   struct list_head list;
   int minor;
   const struct file_operations *fops;
@@ -92,7 +95,7 @@ struct sn_cluster {
   struct quadrant_ctrl *quadrant_ctrl;
 };
 
-struct sn_dev {
+struct pulp_dev {
   struct class *class;
   struct cdev cdev;
   struct device *pDev;
@@ -100,7 +103,7 @@ struct sn_dev {
 };
 
 struct quadrant_ctrl {
-  u32 quadrant_idx;
+  u32  quadrant_idx;
   void __iomem *regs;
   struct list_head list;
 };
@@ -111,43 +114,43 @@ struct quadrant_ctrl {
 //
 // ----------------------------------------------------------------------------
 
-static void set_isolation(struct sn_cluster *sc, int iso);
-static int isolate(struct sn_cluster *sc);
-static int deisolate(struct sn_cluster *sc);
-static uint32_t get_isolation(uint32_t quadrant);
-static void soc_reg_write(uint32_t reg_off, uint32_t val);
-static uint32_t soc_reg_read(uint32_t reg_off);
-static void quadrant_ctrl_reg_write(struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val);
-static uint32_t quadrant_ctrl_reg_read(struct quadrant_ctrl *qc, uint32_t reg_off);
-static void quadrant_ctrl_reg_write64(struct quadrant_ctrl *qc, uint32_t reg_off, uint64_t val);
-static uint64_t quadrant_ctrl_reg_read64(struct quadrant_ctrl *qc, uint32_t reg_off);
-static void set_clint(const struct snios_reg *sr);
-static void clear_clint(const struct snios_reg *sr);
-static uint32_t get_clint(uint32_t reg_off);
-static struct quadrant_ctrl *get_quadrant_ctrl(u32 quadrant_idx);
-static int write_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe);
-static int read_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe);
+static void     set_isolation                    (struct pulp_cluster *pc, int iso);
+static int      isolate                          (struct pulp_cluster *pc);
+static int      deisolate                        (struct pulp_cluster *pc);
+static uint32_t get_isolation                    (uint32_t quadrant);
+static void     soc_reg_write                    (uint32_t reg_off, uint32_t val);
+static uint32_t soc_reg_read                     (uint32_t reg_off);
+static void     quadrant_ctrl_reg_write          (struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val);
+static uint32_t quadrant_ctrl_reg_read           (struct quadrant_ctrl *qc, uint32_t reg_off);
+static void     quadrant_ctrl_reg_write64        (struct quadrant_ctrl *qc, uint32_t reg_off, uint64_t val);
+static uint64_t quadrant_ctrl_reg_read64         (struct quadrant_ctrl *qc, uint32_t reg_off);
+static void     set_clint                        (const struct pulpios_reg *sr);
+static void     clear_clint                      (const struct pulpios_reg *sr);
+static uint32_t get_clint                        (uint32_t reg_off);
+static struct   quadrant_ctrl *get_quadrant_ctrl (u32 quadrant_idx);
+static int      write_tlb                        (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
+static int      read_tlb                         (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
 // ----------------------------------------------------------------------------
 //
 //   Static data
 //
 // ----------------------------------------------------------------------------
 
-static struct sn_dev sn_dev;
+static struct pulp_dev pulp_dev;
 
 /**
- * @brief A list containing all pointers to registers pulp cluster `struct sn_cluster` structs
+ * @brief A list containing all pointers to registers pulp cluster `struct pulp_cluster` structs
  */
-static LIST_HEAD(sc_list);
+static LIST_HEAD(pc_list);
 /**
  * @brief A list containing all pointers to quadrant controllers `struct quadrant_ctrl` structs
  */
 static LIST_HEAD(quadrant_ctrl_list);
 /**
- * @brief Protect the sc_list
+ * @brief Protect the pc_list
  *
  */
-static DEFINE_MUTEX(sn_mtx);
+static DEFINE_MUTEX(pulp_mtx);
 
 // ----------------------------------------------------------------------------
 //
@@ -189,18 +192,18 @@ void __iomem *clint_regs_p;
  */
 static int pulp_open(struct inode *inode, struct file *file) {
   int minor = iminor(inode);
-  struct sn_cluster *sc;
+  struct pulp_cluster *pc;
   int err = -ENODEV;
 
-  // mutex_lock(&sn_mtx);
+  // mutex_lock(&pulp_mtx);
 
-  list_for_each_entry(sc, &sc_list, list) {
-    if (sc->minor == minor) {
+  list_for_each_entry(pc, &pc_list, list) {
+    if (pc->minor == minor) {
       /*
-       * Place the miscdevice in the file's private_data so it can be used by the
+       * Place the mipcdevice in the file's private_data so it can be used by the
        * file operations
        */
-      file->private_data = sc;
+      file->private_data = pc;
       break;
     }
   }
@@ -210,10 +213,10 @@ static int pulp_open(struct inode *inode, struct file *file) {
   }
 
   err = 0;
-  dbg("cluster %d opened\n", sc->minor);
+  dbg("cluster %d opened\n", pc->minor);
 
 fail:
-  // mutex_unlock(&sn_mtx);
+  // mutex_unlock(&pulp_mtx);
   return err;
 }
 
@@ -221,30 +224,30 @@ fail:
  * Called when a process closes the device file.
  */
 static int pulp_release(struct inode *inode, struct file *file) {
-  struct sn_cluster *sc;
-  sc = file->private_data;
-  dbg("cluster %d released\n", sc->minor);
+  struct pulp_cluster *pc;
+  pc = file->private_data;
+  dbg("cluster %d released\n", pc->minor);
   return 0;
 }
 
 /*
  * Called when a process, which already opened the dev file, attempts to
- * read from it. If size is correct, returns a copy of the sn_cluster_info struct
+ * read from it. If size is correct, returns a copy of the pulp_cluster_info struct
  */
 static ssize_t pulp_read(struct file *file, char __user *buffer, size_t length, loff_t *offset) {
-  struct sn_cluster *sc;
-  sc = file->private_data;
+  struct pulp_cluster *pc;
+  pc = file->private_data;
 
-  // only support reads of size sizeof(struct sn_cluster_info)
-  if (length != sizeof(struct sn_cluster_info)) {
+  // only support reads of size sizeof(struct pulp_cluster_info)
+  if (length != sizeof(struct pulp_cluster_info)) {
     info(KERN_ALERT "Sorry, this operation isn't supported.\n");
     return -EINVAL;
   }
 
-  if (copy_to_user(buffer, &sc->sci, sizeof(struct sn_cluster_info)) != 0)
+  if (copy_to_user(buffer, &pc->pci, sizeof(struct pulp_cluster_info)) != 0)
     return -EFAULT;
 
-  return sizeof(struct sn_cluster_info);
+  return sizeof(struct pulp_cluster_info);
 }
 
 /*
@@ -258,67 +261,67 @@ static ssize_t pulp_write(struct file *file, const char *buff, size_t len, loff_
 static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   void __user *argp = (void __user *)arg;
   int __user *p = argp;
-  struct snios_reg sreg;
+  struct pulpios_reg sreg;
   struct axi_tlb_entry tlbe;
-  struct sn_cluster *sc;
-  sc = file->private_data;
+  struct pulp_cluster *pc;
+  pc = file->private_data;
 
   // check correct magic
-  if (_IOC_TYPE(cmd) != SNIOC_MAGIC)
+  if (_IOC_TYPE(cmd) != PULPIOC_MAGIC)
     return -ENOTTY;
 
   dbg("ioctl with cmd %d arg %ld\n", cmd, arg);
 
   // Switch according to the ioctl called
   switch (cmd) {
-  case SNIOC_SET_OPTIONS: {
+  case PULPIOC_SET_OPTIONS: {
     int options, retval = -EINVAL;
     if (get_user(options, p))
       return -EFAULT;
 
-    if (options & SNIOS_ISOLATE)
-      retval = isolate(sc);
-    if (options & SNIOS_DEISOLATE) {
-      retval = deisolate(sc);
+    if (options & PULPIOS_ISOLATE)
+      retval = isolate(pc);
+    if (options & PULPIOS_DEISOLATE) {
+      retval = deisolate(pc);
     }
 
     return retval;
   }
-  case SNIOS_SCRATCH_W: {
+  case PULPIOS_SCRATCH_W: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
-    // Sanitize to 4 scratch registers
+    // Sanitize to 4 pcratch registers
     if (sreg.off > 4)
       return -EINVAL;
-    dbg("scratch write reg %d val %#x\n", sreg.off, sreg.val);
+    dbg("pcratch write reg %d val %#x\n", sreg.off, sreg.val);
     soc_reg_write(SCTL_SCRATCH_0_REG_OFFSET / 4 + sreg.off, sreg.val);
     return 0;
   }
-  case SNIOS_SCRATCH_R: {
+  case PULPIOS_SCRATCH_R: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
-    // Sanitize to 4 scratch registers
+    // Sanitize to 4 pcratch registers
     if (sreg.off > 4)
       return -EINVAL;
     sreg.val = soc_reg_read(SCTL_SCRATCH_0_REG_OFFSET / 4 + sreg.off);
-    dbg("scratch read reg %d val %#x\n", sreg.off, sreg.val);
+    dbg("pcratch read reg %d val %#x\n", sreg.off, sreg.val);
     if (copy_to_user(p, &sreg, sizeof(sreg)))
       return -EFAULT;
     return 0;
   }
-  case SNIOS_READ_ISOLATION: {
+  case PULPIOS_READ_ISOLATION: {
     uint32_t quadrant;
     if (get_user(quadrant, p))
       return -EFAULT;
     return get_isolation(quadrant);
   }
-  case SNIOS_SET_IPI: {
+  case PULPIOS_SET_IPI: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     set_clint(&sreg);
     return 0;
   }
-  case SNIOS_GET_IPI: {
+  case PULPIOS_GET_IPI: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     sreg.val = get_clint(sreg.off);
@@ -326,26 +329,26 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       return -EFAULT;
     return 0;
   }
-  case SNIOS_CLEAR_IPI: {
+  case PULPIOS_CLEAR_IPI: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     clear_clint(&sreg);
     return 0;
   }
-  case SNIOS_FLUSH: {
+  case PULPIOS_FLUSH: {
     asm volatile("fence");
     return 0;
   }
-  case SNIOS_WRITE_TLB_ENTRY: {
+  case PULPIOS_WRITE_TLB_ENTRY: {
     if (copy_from_user(&tlbe, p, sizeof(tlbe)))
       return -EFAULT;
-    return write_tlb(sc, &tlbe);
+    return write_tlb(pc, &tlbe);
   }
-  case SNIOS_READ_TLB_ENTRY: {
+  case PULPIOS_READ_TLB_ENTRY: {
     int ret;
     if (copy_from_user(&tlbe, p, sizeof(tlbe)))
       return -EFAULT;
-    ret = read_tlb(sc, &tlbe);
+    ret = read_tlb(pc, &tlbe);
     if (copy_to_user(p, &tlbe, sizeof(tlbe)))
       return -EFAULT;
     return ret;
@@ -359,28 +362,28 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 /**
  * @brief memory map to user-space. The module's address map is contiguous
- * refer to the SNITCH_MMAP_x_BASE() macros for address calculation
+ * refer to the PULP_MMAP_x_BASE() macros for address calculation
  *
  */
 int pulp_mmap(struct file *file, struct vm_area_struct *vma) {
   unsigned long mapoffset, vsize, psize;
   char type[20];
   int ret;
-  struct sn_cluster *sc;
-  sc = file->private_data;
+  struct pulp_cluster *pc;
+  pc = file->private_data;
 
   dbg("mmap with offset %#lx\n", vma->vm_pgoff);
 
   switch (vma->vm_pgoff) {
   case 0:
     strncpy(type, "l3", sizeof(type));
-    mapoffset = sc->l3.pbase;
-    psize = sc->l3.size;
+    mapoffset = pc->l3.pbase;
+    psize = pc->l3.size;
     break;
   case 1:
     strncpy(type, "l1", sizeof(type));
-    mapoffset = sc->l1.pbase;
-    psize = sc->l1.size;
+    mapoffset = pc->l1.pbase;
+    psize = pc->l1.size;
     break;
   default:
     return -EINVAL;
@@ -412,8 +415,8 @@ int pulp_flush(struct file *file, fl_owner_t id) {
   // unsigned long mapoffset, vsize, psize;
   // char type[20];
   // int ret;
-  // struct sn_cluster *sc;
-  // sc = file->private_data;
+  // struct pulp_cluster *pc;
+  // pc = file->private_data;
 
   dbg("flush\n");
   return 0;
@@ -440,13 +443,13 @@ struct file_operations pulp_fops = {
  *
  * @param iso 1 to isolate, 0 to de-isolate
  */
-static void set_isolation(struct sn_cluster *sc, int iso) {
+static void set_isolation(struct pulp_cluster *pc, int iso) {
   u32 mask, val;
   val = iso ? 1U : 0U;
   mask = (val << QCTL_ISOLATE_NARROW_IN_BIT) | (val << QCTL_ISOLATE_NARROW_OUT_BIT) |
          (val << QCTL_ISOLATE_WIDE_IN_BIT) | (val << QCTL_ISOLATE_WIDE_OUT_BIT);
-  dbg("set_isolation quadrant %d value %01x\n", sc->quadrant_ctrl->quadrant_idx, mask);
-  quadrant_ctrl_reg_write(sc->quadrant_ctrl, QCTL_ISOLATE_REG_OFFSET / 4, mask);
+  dbg("set_isolation quadrant %d value %01x\n", pc->quadrant_ctrl->quadrant_idx, mask);
+  quadrant_ctrl_reg_write(pc->quadrant_ctrl, QCTL_ISOLATE_REG_OFFSET / 4, mask);
 }
 
 /**
@@ -454,11 +457,11 @@ static void set_isolation(struct sn_cluster *sc, int iso) {
  *
  * @param reset 1 to assert reset, 0 de-assert reset
  */
-static void set_reset(struct sn_cluster *sc, int reset) {
-  dbg("set_reset quadrant %d %s\n", sc->quadrant_ctrl->quadrant_idx,
+static void set_reset(struct pulp_cluster *pc, int reset) {
+  dbg("set_reset quadrant %d %s\n", pc->quadrant_ctrl->quadrant_idx,
       reset ? "ASSERT" : "DE-ASSERT");
   // Active-low reset
-  quadrant_ctrl_reg_write(sc->quadrant_ctrl, QCTL_RESET_N_REG_OFFSET / 4,
+  quadrant_ctrl_reg_write(pc->quadrant_ctrl, QCTL_RESET_N_REG_OFFSET / 4,
                           (reset ? 0U : 1U) << QCTL_RESET_N_RESET_N_BIT);
 }
 
@@ -467,12 +470,12 @@ static void set_reset(struct sn_cluster *sc, int reset) {
  * (isolated = 0xf), put quadrant in reset. If isolation does not succeed, does not reset the
  * quadrant and returns ETIMEOUT
  */
-static int isolate(struct sn_cluster *sc) {
-  unsigned quadrant_id = sc->sci.quadrant_idx;
+static int isolate(struct pulp_cluster *pc) {
+  unsigned quadrant_id = pc->pci.quadrant_idx;
   u32 timeout = 1000; // [x10 us]
   uint32_t iso;
 
-  set_isolation(sc, 1);
+  set_isolation(pc, 1);
   do {
     iso = get_isolation(quadrant_id);
     if (iso != 0xf)
@@ -480,7 +483,7 @@ static int isolate(struct sn_cluster *sc) {
   } while (iso != 0xf && --timeout);
 
   if (iso == 0xf) {
-    set_reset(sc, 1);
+    set_reset(pc, 1);
   } else {
     return -ETIMEDOUT;
   }
@@ -491,13 +494,13 @@ static int isolate(struct sn_cluster *sc) {
  * @brief Release reset and deisolate quadrant. On success (isolated = 0) return 0, on fail (isolate
  * != 0) put quadrant into reset and isolate, return -ETIMEDOUT
  */
-static int deisolate(struct sn_cluster *sc) {
-  unsigned quadrant_id = sc->sci.quadrant_idx;
+static int deisolate(struct pulp_cluster *pc) {
+  unsigned quadrant_id = pc->pci.quadrant_idx;
   u32 timeout = 1000; // [x10 us]
   uint32_t iso;
 
-  set_reset(sc, 0);
-  set_isolation(sc, 0);
+  set_reset(pc, 0);
+  set_isolation(pc, 0);
   do {
     iso = get_isolation(quadrant_id);
     if (iso != 0x0)
@@ -505,8 +508,8 @@ static int deisolate(struct sn_cluster *sc) {
   } while (iso != 0x0 && --timeout);
 
   if (iso != 0x0) {
-    set_isolation(sc, 1);
-    set_reset(sc, 1);
+    set_isolation(pc, 1);
+    set_reset(pc, 1);
     return -ETIMEDOUT;
   }
 
@@ -550,7 +553,7 @@ static void quadrant_ctrl_reg_write64(struct quadrant_ctrl *qc, uint32_t reg_off
 static uint64_t quadrant_ctrl_reg_read64(struct quadrant_ctrl *qc, uint32_t reg_off) {
   return ioread64((uint32_t *)qc->regs + reg_off);
 }
-static void set_clint(const struct snios_reg *sr) {
+static void set_clint(const struct pulpios_reg *sr) {
   u32 val;
   spin_lock(&clint_lock);
   val = ioread32((uint32_t *)clint_regs + sr->off);
@@ -558,7 +561,7 @@ static void set_clint(const struct snios_reg *sr) {
   spin_unlock(&clint_lock);
   dbg("clint write reg %d value %08x\n", sr->off, val | sr->val);
 }
-static void clear_clint(const struct snios_reg *sr) {
+static void clear_clint(const struct pulpios_reg *sr) {
   u32 val;
   spin_lock(&clint_lock);
   val = ioread32((uint32_t *)clint_regs + sr->off);
@@ -584,7 +587,7 @@ static struct quadrant_ctrl *get_quadrant_ctrl(u32 quadrant_idx) {
   return ret;
 }
 
-static int write_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe) {
+static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   uint32_t reg_off;
 
   // TODO: Sanitize index in range correctly
@@ -602,13 +605,13 @@ static int write_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe) {
   // dbg("tlb write offset %#x first %#llx last %#llx base %#llx flags %#x\n", reg_off,
   //     tlbe->first >> 12, tlbe->last >> 12, tlbe->base >> 12, tlbe->flags);
 
-  iowrite64(tlbe->first >> 12, sc->quadrant_ctrl->regs + reg_off + 0);
-  iowrite64(tlbe->last >> 12, sc->quadrant_ctrl->regs + reg_off + 8);
-  iowrite64(tlbe->base >> 12, sc->quadrant_ctrl->regs + reg_off + 16);
-  iowrite32((uint32_t)tlbe->flags, sc->quadrant_ctrl->regs + reg_off + 24);
+  iowrite64(tlbe->first >> 12, pc->quadrant_ctrl->regs + reg_off + 0);
+  iowrite64(tlbe->last >> 12, pc->quadrant_ctrl->regs + reg_off + 8);
+  iowrite64(tlbe->base >> 12, pc->quadrant_ctrl->regs + reg_off + 16);
+  iowrite32((uint32_t)tlbe->flags, pc->quadrant_ctrl->regs + reg_off + 24);
   return 0;
 }
-static int read_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe) {
+static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   uint32_t reg_off;
 
   // TODO: Sanitize index in range correctly
@@ -623,10 +626,10 @@ static int read_tlb(struct sn_cluster *sc, struct axi_tlb_entry *tlbe) {
   } else
     return -EINVAL;
 
-  tlbe->first = ioread64(sc->quadrant_ctrl->regs + reg_off + 0) << 12;
-  tlbe->last = ioread64(sc->quadrant_ctrl->regs + reg_off + 8) << 12;
-  tlbe->base = ioread64(sc->quadrant_ctrl->regs + reg_off + 16) << 12;
-  tlbe->flags = ioread32(sc->quadrant_ctrl->regs + reg_off + 24);
+  tlbe->first = ioread64(pc->quadrant_ctrl->regs + reg_off + 0) << 12;
+  tlbe->last = ioread64(pc->quadrant_ctrl->regs + reg_off + 8) << 12;
+  tlbe->base = ioread64(pc->quadrant_ctrl->regs + reg_off + 16) << 12;
+  tlbe->flags = ioread32(pc->quadrant_ctrl->regs + reg_off + 24);
 
   // dbg("  TLB read first %#llx last %#llx\n", tlbe->first, tlbe->last);
 
@@ -655,7 +658,7 @@ static u32 of_get_prop_u32_default(const struct device_node *np, const char *pro
 }
 
 /**
- * pulp_probe - Pulp cluster probe function.
+ * pulp_probe - pulp cluster probe function.
  * @pdev:	Pointer to platform device structure.
  *
  * Return: 0, on success
@@ -664,7 +667,7 @@ static u32 of_get_prop_u32_default(const struct device_node *np, const char *pro
  */
 static int pulp_probe(struct platform_device *pdev) {
   struct resource *res, memres;
-  struct sn_cluster *sc;
+  struct pulp_cluster *pc;
   struct quadrant_ctrl *qc;
   struct device_node *np;
   struct resource socres;
@@ -676,48 +679,48 @@ static int pulp_probe(struct platform_device *pdev) {
   dev_info(&pdev->dev, "probe\n");
 
   // Allocate memory for the pulp cluster structure
-  sc = devm_kmalloc(&pdev->dev, sizeof(*sc), GFP_KERNEL);
-  sc->nodename = NULL;
-  if (!sc)
+  pc = devm_kmalloc(&pdev->dev, sizeof(*pc), GFP_KERNEL);
+  pc->nodename = NULL;
+  if (!pc)
     return -ENOMEM;
 
   // Populate cluster info struct
-  sc->sci.compute_num = of_get_prop_u32_default(pdev->dev.of_node, "eth,compute-cores", 8);
-  sc->sci.dm_num = of_get_prop_u32_default(pdev->dev.of_node, "eth,dm-cores", 1);
-  sc->sci.cluster_idx = of_get_prop_u32_default(pdev->dev.of_node, "eth,cluster-idx", 0);
-  sc->sci.quadrant_idx = of_get_prop_u32_default(pdev->dev.of_node, "eth,quadrant-idx", 0);
+  pc->pci.compute_num = of_get_prop_u32_default(pdev->dev.of_node, "eth,compute-cores", 8);
+  pc->pci.dm_num = of_get_prop_u32_default(pdev->dev.of_node, "eth,dm-cores", 1);
+  pc->pci.cluster_idx = of_get_prop_u32_default(pdev->dev.of_node, "eth,cluster-idx", 0);
+  pc->pci.quadrant_idx = of_get_prop_u32_default(pdev->dev.of_node, "eth,quadrant-idx", 0);
 
   dev_info(&pdev->dev, "computer-cores: %d dm-cores: %d cluster: %d quadrant: %d\n",
-           sc->sci.compute_num, sc->sci.dm_num, sc->sci.cluster_idx, sc->sci.quadrant_idx);
+           pc->pci.compute_num, pc->pci.dm_num, pc->pci.cluster_idx, pc->pci.quadrant_idx);
 
-  INIT_LIST_HEAD(&sc->list);
-  // mutex_lock(&sn_mtx);
+  INIT_LIST_HEAD(&pc->list);
+  // mutex_lock(&pulp_mtx);
 
   // Get resource and remap to kernel space
   // the pulp node should have two reg properties, one for TCDM the other for peripherals
 
   // TCDM is mapped as memory
   res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-  sc->l1.pbase = res->start;
-  sc->l1.size = resource_size(res);
-  sc->l1.vbase = memremap(res->start, resource_size(res), MEMREMAP_WT);
-  if (!sc->l1.vbase) {
+  pc->l1.pbase = res->start;
+  pc->l1.size = resource_size(res);
+  pc->l1.vbase = memremap(res->start, resource_size(res), MEMREMAP_WT);
+  if (!pc->l1.vbase) {
     dev_err(&pdev->dev, "memremap of TCDM failed\n");
     err = -ENOMEM;
     goto out;
   }
-  dev_info(&pdev->dev, "Remapped TCDM phys %px virt %px size %x\n", (void *)sc->l1.pbase,
-           (void *)sc->l1.vbase, (unsigned int)sc->l1.size);
+  dev_info(&pdev->dev, "Remapped TCDM phys %px virt %px size %x\n", (void *)pc->l1.pbase,
+           (void *)pc->l1.vbase, (unsigned int)pc->l1.size);
 
   // Cluster peripheral is mapped as resource
   res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-  sc->pbase = devm_ioremap_resource(&pdev->dev, res);
-  if (IS_ERR(sc->pbase)) {
-    err = PTR_ERR(sc->pbase);
+  pc->pbase = devm_ioremap_resource(&pdev->dev, res);
+  if (IS_ERR(pc->pbase)) {
+    err = PTR_ERR(pc->pbase);
     goto out;
   }
-  sc->sci.periph_size = resource_size(res);
-  dev_info(&pdev->dev, "peripherals virt %px\n", sc->pbase);
+  pc->pci.periph_size = resource_size(res);
+  dev_info(&pdev->dev, "peripherals virt %px\n", pc->pbase);
 
   // SoC control
   if (!soc_regs) {
@@ -759,7 +762,7 @@ static int pulp_probe(struct platform_device *pdev) {
   dev_info(&pdev->dev, "clint virt %px res.start: %px\n", (void *)clint_regs, clint_regs_p);
 
   // Quadrant control
-  qc = get_quadrant_ctrl(sc->sci.quadrant_idx);
+  qc = get_quadrant_ctrl(pc->pci.quadrant_idx);
   if (!qc) {
     dev_info(&pdev->dev, "quadrantr ctrl not found, mapping new\n");
     np = of_parse_phandle(pdev->dev.of_node, "eth,quadrant-ctrl", 0);
@@ -773,7 +776,7 @@ static int pulp_probe(struct platform_device *pdev) {
       err = -ENOMEM;
       goto out;
     }
-    qc->quadrant_idx = sc->sci.quadrant_idx;
+    qc->quadrant_idx = pc->pci.quadrant_idx;
     list_add(&qc->list, &quadrant_ctrl_list);
     ret = of_address_to_resource(np, 0, &quadctrlres);
     qc->regs = devm_ioremap_resource(&pdev->dev, &quadctrlres);
@@ -783,7 +786,7 @@ static int pulp_probe(struct platform_device *pdev) {
       goto out;
     }
   }
-  sc->quadrant_ctrl = qc;
+  pc->quadrant_ctrl = qc;
   dev_info(&pdev->dev, "quadrant ctrl virt %px quadrant %d\n", (void *)qc->regs, qc->quadrant_idx);
 
   // Get reserved memory region from Device-tree
@@ -802,28 +805,28 @@ static int pulp_probe(struct platform_device *pdev) {
     goto out;
   }
 
-  sc->l3.pbase = memres.start;
-  sc->l3.size = resource_size(&memres);
-  sc->l3.vbase = memremap(memres.start, resource_size(&memres), MEMREMAP_WB);
-  // sc->l3.vbase = devm_ioremap_resource(&pdev->dev, &memres);
-  if (!sc->l3.vbase) {
+  pc->l3.pbase = memres.start;
+  pc->l3.size = resource_size(&memres);
+  pc->l3.vbase = memremap(memres.start, resource_size(&memres), MEMREMAP_WB);
+  // pc->l3.vbase = devm_ioremap_resource(&pdev->dev, &memres);
+  if (!pc->l3.vbase) {
     dev_err(&pdev->dev, "memremap failed\n");
     err = -ENOMEM;
     goto out;
   }
-  dev_info(&pdev->dev, "Remapped shred L3 phys %px virt %px\n", (void *)sc->l3.pbase,
-           (void *)sc->l3.vbase);
+  dev_info(&pdev->dev, "Remapped shred L3 phys %px virt %px\n", (void *)pc->l3.pbase,
+           (void *)pc->l3.vbase);
 
-  sc->sci.periph_size = sc->l3.size;
-  sc->sci.l1_size = sc->l1.size;
-  sc->sci.l3_size = sc->l3.size;
-  sc->sci.l3_paddr = (void *)sc->l3.pbase;
-  sc->sci.l1_paddr = (void *)sc->l1.pbase;
-  sc->sci.clint_base = (uint64_t)clint_regs_p;
+  pc->pci.periph_size = pc->l3.size;
+  pc->pci.l1_size = pc->l1.size;
+  pc->pci.l3_size = pc->l3.size;
+  pc->pci.l3_paddr = (void *)pc->l3.pbase;
+  pc->pci.l1_paddr = (void *)pc->l1.pbase;
+  pc->pci.clint_base = (uint64_t)clint_regs_p;
 
-  list_add(&sc->list, &sc_list);
+  list_add(&pc->list, &pc_list);
 out:
-  // mutex_unlock(&sn_mtx);
+  // mutex_unlock(&pulp_mtx);
   return err;
 }
 
@@ -847,12 +850,12 @@ static struct platform_driver pulp_driver = {
 };
 
 static char *pulp_devnode(struct device *dev, umode_t *mode) {
-  struct sn_cluster *sc = dev_get_drvdata(dev);
+  struct pulp_cluster *pc = dev_get_drvdata(dev);
 
-  if (mode && sc->mode)
-    *mode = sc->mode;
-  if (sc->nodename)
-    return kstrdup(sc->nodename, GFP_KERNEL);
+  if (mode && pc->mode)
+    *mode = pc->mode;
+  if (pc->nodename)
+    return kstrdup(pc->nodename, GFP_KERNEL);
   return NULL;
 }
 
@@ -865,45 +868,45 @@ static char *pulp_devnode(struct device *dev, umode_t *mode) {
 int pulp_init(void) {
   int ret;
   char devname[12];
-  struct sn_cluster *sc;
+  struct pulp_cluster *pc;
 
-  info("Loading Pulp module\n");
+  info("Loading pulp module\n");
 
   // Create /sys/class/pulp in preparation of creating /dev/pulp
-  sn_dev.class = class_create(THIS_MODULE, CLASS_NAME);
-  if (IS_ERR(sn_dev.class)) {
+  pulp_dev.class = class_create(THIS_MODULE, CLASS_NAME);
+  if (IS_ERR(pulp_dev.class)) {
     info(KERN_WARNING "can't create class\n");
     return -1;
   }
 
   // register character device and optain major number so that accesses on the char device are
   // mapped to this module. Request major 0 to get a dynamically assigned major number
-  sn_dev.major = register_chrdev(0, DEVICE_NAME, &pulp_fops);
-  if (sn_dev.major < 0) {
-    info(KERN_ALERT "Registering char device failed with %d\n", sn_dev.major);
-    return sn_dev.major;
+  pulp_dev.major = register_chrdev(0, DEVICE_NAME, &pulp_fops);
+  if (pulp_dev.major < 0) {
+    info(KERN_ALERT "Registering char device failed with %d\n", pulp_dev.major);
+    return pulp_dev.major;
   }
-  sn_dev.class->devnode = pulp_devnode;
+  pulp_dev.class->devnode = pulp_devnode;
 
-  // Discover clusters from devicetree and register
+  // Dipcover clusters from devicetree and register
   ret = platform_driver_register(&pulp_driver);
   if (ret) {
     info(KERN_ALERT "Registering platform driver failed: %d\n", ret);
     return ret;
   }
 
-  list_for_each_entry(sc, &sc_list, list) {
+  list_for_each_entry(pc, &pc_list, list) {
     // Use same file operations for all clusters
-    sc->fops = &pulp_fops;
+    pc->fops = &pulp_fops;
 
     // Use cluster index as device minor number
-    sc->minor = sc->sci.cluster_idx;
+    pc->minor = pc->pci.cluster_idx;
 
     // Create file in /dev/
-    snprintf(devname, sizeof(devname), DEVICE_NAME "%d", sc->minor);
-    sc->this_device = device_create_with_groups(sn_dev.class, NULL, MKDEV(sn_dev.major, sc->minor),
-                                                sc, NULL, devname);
-    if (IS_ERR(sc->this_device)) {
+    snprintf(devname, sizeof(devname), DEVICE_NAME "%d", pc->minor);
+    pc->this_device = device_create_with_groups(pulp_dev.class, NULL, MKDEV(pulp_dev.major, pc->minor),
+                                                pc, NULL, devname);
+    if (IS_ERR(pc->this_device)) {
       info(KERN_WARNING "can't create device in /dev/\n");
     } else {
       info("Created char device /dev/%s\n", devname);
@@ -920,20 +923,20 @@ int pulp_init(void) {
 // ----------------------------------------------------------------------------
 
 void pulp_exit(void) {
-  struct sn_cluster *sc;
+  struct pulp_cluster *pc;
 
-  // mutex_lock(&sn_mtx);
+  // mutex_lock(&pulp_mtx);
 
-  list_for_each_entry(sc, &sc_list, list) {
-    device_destroy(sn_dev.class, MKDEV(sn_dev.major, sc->minor));
+  list_for_each_entry(pc, &pc_list, list) {
+    device_destroy(pulp_dev.class, MKDEV(pulp_dev.major, pc->minor));
   }
 
-  class_destroy(sn_dev.class);
-  unregister_chrdev(sn_dev.major, DEVICE_NAME);
+  class_destroy(pulp_dev.class);
+  unregister_chrdev(pulp_dev.major, DEVICE_NAME);
 
   platform_driver_unregister(&pulp_driver);
 
-  // mutex_unlock(&sn_mtx);
+  // mutex_unlock(&pulp_mtx);
 
   info("unload complete\n");
 }

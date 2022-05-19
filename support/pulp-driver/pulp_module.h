@@ -1,5 +1,5 @@
 /*
- * This file is part of the Pulp device driver.
+ * This file is part of the PULP device driver.
  *
  * Copyright (C) 2022 ETH Zurich, University of Bologna
  *
@@ -19,11 +19,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SNITCH_H
-#define _SNITCH_H
+#ifndef _PULP_H
+#define _PULP_H
 
 /**
- * @brief When reading from the pulp driver /dev/pulp of size sizeof(struct sn_cluster_info)
+ * @brief When reading from the pulp driver /dev/pulp of size sizeof(struct pulp_cluster_info)
  * this struct is populated and returned to user space
  * @compute_num: Number of compute cores in the cluster
  * @dm_num: Number of data mover cores in the cluster
@@ -35,7 +35,7 @@
  * @l1_paddr: L1 physical base address
  * @clint_base: Physical address of clint from devicetree
  */
-struct sn_cluster_info {
+struct pulp_cluster_info {
   uint32_t compute_num;
   uint32_t dm_num;
   uint32_t cluster_idx;
@@ -52,16 +52,16 @@ struct sn_cluster_info {
  * Macros to calculate the base address for mmap'ing regions to user space. Must be a multple of
  * PAGE_SHIFT
  */
-#define SNITCH_MMAP_L3 (0 * sysconf(_SC_PAGE_SIZE))
-#define SNITCH_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
+#define PULPITCH_MMAP_L3 (0 * sypconf(_SC_PAGE_SIZE))
+#define PULPITCH_MMAP_TCDM (1 * sypconf(_SC_PAGE_SIZE))
 
 /**
  * IOCTL
  */
 
-#define SNIOC_MAGIC 's'
+#define PULPIOC_MAGIC 's'
 
-struct snios_reg {
+struct pulpios_reg {
   uint32_t off;
   uint32_t val;
 };
@@ -81,66 +81,66 @@ struct axi_tlb_entry {
  * @brief set options of the pulp cluster. See below for options encoding
  *
  */
-#define SNIOC_SET_OPTIONS _IOW(SNIOC_MAGIC, 0, char *)
+#define PULPIOC_SET_OPTIONS _IOW(PULPIOC_MAGIC, 0, char *)
 /**
- * @brief Write to scratch registers. Pass `struct snios_reg` containing the register offset and
+ * @brief Write to pcratch registers. Pass `struct pulpios_reg` containing the register offset and
  * value
  *
  */
-#define SNIOS_SCRATCH_W _IOW(SNIOC_MAGIC, 1, struct snios_reg)
+#define PULPIOS_SCRATCH_W _IOW(PULPIOC_MAGIC, 1, struct pulpios_reg)
 /**
- * @brief Read from scratch registers. Pass `struct snios_reg` containing the register offset and
+ * @brief Read from pcratch registers. Pass `struct pulpios_reg` containing the register offset and
  * value is returned in the sturct
  *
  */
-#define SNIOS_SCRATCH_R _IOWR(SNIOC_MAGIC, 2, struct snios_reg)
+#define PULPIOS_SCRATCH_R _IOWR(PULPIOC_MAGIC, 2, struct pulpios_reg)
 /**
  * @brief Read isolation bits for quadrant passed by argument. Return by value, 4 bit field of
  * isolated register
  *
  */
-#define SNIOS_READ_ISOLATION _IOR(SNIOC_MAGIC, 3, char *)
+#define PULPIOS_READ_ISOLATION _IOR(PULPIOC_MAGIC, 3, char *)
 
 /**
- * @brief Set bits in the CLINT SW-interrupt register. Pass struct snios_reg with register offset in
+ * @brief Set bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset in
  * `reg` and value in `val`.
  *
  */
-#define SNIOS_SET_IPI _IOR(SNIOC_MAGIC, 4, struct snios_reg)
+#define PULPIOS_SET_IPI _IOR(PULPIOC_MAGIC, 4, struct pulpios_reg)
 
 /**
- * @brief Clear bits in the CLINT SW-interrupt register. Pass struct snios_reg with register offset
+ * @brief Clear bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset
  * in `reg` and value in `val` (set bits in `val` will be cleared in clint).
  *
  */
-#define SNIOS_CLEAR_IPI _IOR(SNIOC_MAGIC, 5, struct snios_reg)
+#define PULPIOS_CLEAR_IPI _IOR(PULPIOC_MAGIC, 5, struct pulpios_reg)
 
 /**
- * @brief Get bits in the CLINT SW-interrupt register. Pass struct snios_reg with register offset in
+ * @brief Get bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset in
  * `reg` and value is written to `val`
  *
  */
-#define SNIOS_GET_IPI _IOWR(SNIOC_MAGIC, 6, struct snios_reg)
+#define PULPIOS_GET_IPI _IOWR(PULPIOC_MAGIC, 6, struct pulpios_reg)
 
 /**
  * @brief Does a simple `fence` to flush the data-cache (cva6 specific, might not work on all
  * architectures)
  *
  */
-#define SNIOS_FLUSH _IO(SNIOC_MAGIC, 7)
+#define PULPIOS_FLUSH _IO(PULPIOC_MAGIC, 7)
 /**
  * @brief Write a TLB entry with the contents of the argument struct
  *
  */
-#define SNIOS_WRITE_TLB_ENTRY _IOR(SNIOC_MAGIC, 8, struct axi_tlb_entry)
+#define PULPIOS_WRITE_TLB_ENTRY _IOR(PULPIOC_MAGIC, 8, struct axi_tlb_entry)
 /**
  * @brief Read a TLB entry to the argument struct
  *
  */
-#define SNIOS_READ_TLB_ENTRY _IOW(SNIOC_MAGIC, 9, struct axi_tlb_entry)
+#define PULPIOS_READ_TLB_ENTRY _IOW(PULPIOC_MAGIC, 9, struct axi_tlb_entry)
 
-// Values for SNIOC_SET_OPTIONS
-#define SNIOS_DEISOLATE 0x0001 /* Isolate the cluster */
-#define SNIOS_ISOLATE 0x0002   /* De-isolate the cluster */
+// Values for PULPIOC_SET_OPTIONS
+#define PULPIOS_DEISOLATE 0x0001 /* Isolate the cluster */
+#define PULPIOS_ISOLATE 0x0002   /* De-isolate the cluster */
 
 #endif
