@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-CMAKE=cmake-3.18.1
+CMAKE=cmake
 
 ### SETUP A HERO LLVM RTE ###
 THIS_DIR=$(dirname "$(readlink -f "$0")")
@@ -70,6 +70,7 @@ $CMAKE -G Ninja -DCMAKE_BUILD_TYPE="Release" \
       -DLIBOMPTARGET_PULP_BUILD=OFF \
       -DCMAKE_C_COMPILER=$CC \
       -DCMAKE_CXX_COMPILER=$CXX \
+      -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
       $THIS_DIR/llvm-project/llvm
 # $HERO_INSTALL/bin/cmake
 $CMAKE --build . --target install

@@ -3,15 +3,23 @@ ROOT := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 PREM_BR_CMUX_CONFSTR := BR2_PACKAGE_PREM_CMUX=y
 PREM_BR_OMP_CONFSTR := BR2_PACKAGE_HERO_OPENMP_ENABLE_PREM=y
 
-CMAKE   ?= cmake-3.18.1
+ifdef UBUNTU
+CMAKE   ?= cmake
+CXX_LLVM = /usr/bin/g++
+CC_LLVM  = /usr/bin/gcc
+else
+CMAKE ?= cmake-3.18.1
 CXX_LLVM = /usr/pack/gcc-9.2.0-af/linux-x64/bin/g++
 CC_LLVM  = /usr/pack/gcc-9.2.0-af/linux-x64/bin/gcc
+endif
+
 LLVM_SRC = $(ROOT)/toolchain/llvm-project
 
 # GLOBAL TARGETS
 .PHONY: har-exilzcu102 hrv-ediggenesys2
 har-exilzcu102: tc-har-olinux tc-pulp br-har-exilzcu102 sdk-pulp sdk-har tc-llvm
 hrv-ediggenesys2: tc-hrv-olinux tc-pulp br-hrv-ediggenesys2 sdk-pulp sdk-hrv tc-llvm
+
 
 # BUILDROOT
 .PHONY: br-hrv-ediggenesys2-base br-hrv-ediggenesys2 br-har-exilzcu102-base br-har-exilzcu102 br-hrv br-har br-hrv-eqemu-base br-hrv-eqemu

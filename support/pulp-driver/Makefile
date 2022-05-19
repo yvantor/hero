@@ -1,37 +1,27 @@
+# Copyright 2020 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+# Buildroot-compatible kernel module makefile
+
 obj-m := pulp.o
 
 ARCH          := ${KERNEL_ARCH}
-# CROSS_COMPILE := ${KERNEL_CROSS_COMPILE}
-CROSS_COMPILE := /scratch/ytortorella/hero-linux-toolchain/install/bin/riscv64-hero-linux-gnu-
-KERNEL_DIR := /scratch/ytortorella/hero-linux-toolchain/output/br-hrv/build/linux-5.10.7/
+CROSS_COMPILE := ${KERNEL_CROSS_COMPILE}
 
-ccflags-y += -DPLATFORM=${PLATFORM} ${CFLAGS} -O2 -I${HERO_LIBPULP_DIR}/inc -I${HERO_PULP_INC_DIR}
+# -I${HERO_LIBPULP_DIR}/inc -I${HERO_PULP_INC_DIR}
+ccflags-y += -DPLATFORM=${PLATFORM} ${CFLAGS} -O2
 pulp-objs := pulp_module.o
-# pulp_ctrl.o pulp_mem.o pulp_rab.o pulp_dma.o pulp_mbox.o pulp_profile.o
 
-# JUNO and ZynqMP require the stripped down pulp_cache.S
-# ifeq ($(KERNEL_ARCH),arm64)
-# 	pulp-objs += pulp_cache.o
-# endif
+.PHONY: all deploy dis clean build
 
-# ZynqMP requires pulp_smmu.*
-ifeq ($(PLATFORM),TE0808)
-    pulp-objs += pulp_smmu.o
-endif
-
-.PHONY: all build deploy dis
-
-all: deploy
-
+all: modules
 build: modules
 
 modules: $(patsubst %.o,%.c,$(pulp-objs)) $(patsubst %.o,%.h,$(pulp-objs))
 	$(MAKE) -S ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNEL_DIR) M=$(shell pwd) modules
 
-deploy: build
-	scp pulp.ko ${HERO_TARGET_HOST}:${HERO_TARGET_PATH_DRIVERS}/
-
-dis: build
+dis: modules
 	$(CROSS_COMPILE)objdump -DS pulp.ko > pulp.disasm
 
 clean:

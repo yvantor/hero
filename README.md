@@ -214,7 +214,17 @@ make util-hrv-openocd
 ```
 
 #### AlSaqr Version ####
-`make tc-pulp`
-`make sdk-pulp`
-`make br-hrv-alsaqr`
-`make tc-llvm`
+
+If you are one of the cool kids, follow these steps:
+
+```
+$ export UBUNTU=1 (if you are working on your ubuntu machine)
+$ make tc-pulp
+$ make sdk-pulp
+$ make br-hrv-alsaqr
+$ make tc-llvm-debug (or make tc-llvm if you have a powerful enough machine)
+cd env
+source setup.sh
+```
+
+You might need to change `./toolchain/llvm-project/lld/unittest/CMakeLists.txt` from `set(CMAKE_BUILD_WITH_INSTALL_RPATH OFF)` to `set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)`.
