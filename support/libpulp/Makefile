@@ -17,19 +17,23 @@ MAKEFLAGS=--warn-undefined-variables
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
-CFLAGS		:= -Wall -O2 -fPIC -DPLATFORM=$(PLATFORM) $(CFLAGS)
+CFLAGS		:= -Wall -g -O2 -fPIC -DPLATFORM=$(PLATFORM) $(CFLAGS)
 CFLAGS_SO   := $(CFLAGS) -shared
 CC          := $(CROSS_COMPILE)gcc
 AR          := $(CROSS_COMPILE)ar
 OBJCDUMP    := $(CROSS_COMPILE)objdump
 
-SRCS   := vendor/o1heap/o1heap/o1heap.c src/pulp.c
+SRCS   := src/libpulp.c src/fesrv.c vendor/o1heap/o1heap/o1heap.c
 OBJS   := $(SRCS:%.c=%.o)
 LIBDIR := lib
 SO     := $(LIBDIR)/libpulp.so
 A      := $(LIBDIR)/libpulp.a
 
-COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) -c
+# include paths
+INC_DIRS  := . inc ../pulp-driver ../include vendor/o1heap/o1heap $(INC_DIRS)
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
+
+COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(INC_FLAGS) -c
 
 vendor/o1heap/o1heap/%.o : vendor/o1heap/o1heap/%.c $(DEPDIR)/vendor/o1heap/o1heap/%.d | $(DEPDIR)/vendor/o1heap/o1heap
 	$(COMPILE.c) -Ivendor/o1heap/o1heap -o $@ $<
@@ -65,8 +69,3 @@ clean:
 	-rm -rf $(DEPDIR)
 	-rm -rf $(LIBDIR)
 	-rm -f $(OBJS)
-
-deploy:
-	@test -n "$(HERO_TARGET_HOST)" || (echo "'HERO_TARGET_HOST' not defined!"; exit 1)
-	@test -n "$(HERO_TARGET_PATH_LIB)" || (echo "'HERO_TARGET_PATH_LIB' not defined!"; exit 1)
-	scp $(LIBDIR)/* $(HERO_TARGET_HOST):$(HERO_TARGET_PATH_LIB)
