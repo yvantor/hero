@@ -5,6 +5,7 @@
  * @brief SoC-control register map
  *
  */
+#define SCTL_TARGET_REG 0x1A106000
 #define SCTL_INTR_STATE_REG_OFFSET 0x0
 #define SCTL_INTR_ENABLE_REG_OFFSET 0x4
 #define SCTL_INTR_TEST_REG_OFFSET 0x8

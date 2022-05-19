@@ -30,8 +30,10 @@
  * @cluster_idx: Cluster index in a multi-cluster system
  * @quadrant_idx: Quadrant index in a multi-quadrant system
  * @l3_size: Size of the reserved L3 memory
+ * @l2_size: Size of the Scratchpad (SCP) L2 memory
  * @l1_size: Size of the TCDM address space
  * @l3_paddr: L3 physical base address
+ * @l2_paddr: L2 physical base address
  * @l1_paddr: L1 physical base address
  * @clint_base: Physical address of clint from devicetree
  */
@@ -41,9 +43,11 @@ struct pulp_cluster_info {
   uint32_t cluster_idx;
   uint32_t quadrant_idx;
   size_t l3_size;
+  size_t l2_size;
   size_t l1_size;
   size_t periph_size;
   void *l3_paddr;
+  void *l2_paddr;
   void *l1_paddr;
   uint64_t clint_base;
 };

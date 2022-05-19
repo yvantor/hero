@@ -913,6 +913,13 @@ int pulp_init(void) {
     }
   }
 
+  dbg("Resetting PULP\n");
+  void *pulp_reset_bit = ioremap(SCTL_TARGET_REG, 0x10);
+  iowrite32(0x0, pulp_reset_bit);
+  dbg("PULP reset lowered\n");
+  iowrite32(0x7, pulp_reset_bit);
+  dbg("PULP reset risen\n");
+  
   return 0;
 }
 
