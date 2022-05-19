@@ -4,7 +4,8 @@
  * @Last Modified by:   Noah Huetter
  * @Last Modified time: 2020-11-09 17:09:55
  */
-#include "libspulp.h"
+#include "libpulp.h"
+#include "herodev.h"
 #include "pulp_common.h"
 
 #include "debug.h"
@@ -61,7 +62,7 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd);
 // Should be protected by a mutex and also, the properties are taken from the first
 // cluster (as per design these are shared resources)
 // TODO: Make not ugly
-static PULPSubDev *g_l3 = NULL;
+static PulpSubDev *g_l3 = NULL;
 struct O1HeapInstance *g_l3_heap_mgr = NULL;
 uint64_t g_l3_data_offset = 0;
 

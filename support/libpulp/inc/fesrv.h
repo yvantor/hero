@@ -21,7 +21,7 @@ typedef struct {
   FILE *stdout_file;
   volatile struct ring_buf *a2h_rb;
   // required to flush the D$
-  snitch_dev_t *dev;
+  pulp_dev_t *dev;
 } fesrv_t;
 
 void fesrv_init(fesrv_t *fs, pulp_dev_t *dev, void **a2h_rb_p);
