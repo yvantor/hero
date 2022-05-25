@@ -22,7 +22,7 @@
 // ----------------------------------------------------------------------------
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Yvan Tortorella");
+MODULE_AUTHOR("Yvan Tortorella; Luca Valente");
 MODULE_DESCRIPTION("PULP driver");
 
 /* Match table for of_platform binding */
@@ -760,6 +760,34 @@ static int pulp_probe(struct platform_device *pdev) {
     }
   }
   dev_info(&pdev->dev, "clint virt %px res.start: %px\n", (void *)clint_regs, clint_regs_p);
+
+  // Quadrant control
+  qc = get_quadrant_ctrl(pc->pci.quadrant_idx);
+  if (!qc) {
+    dev_info(&pdev->dev, "quadrantr ctrl not found, mapping new\n");
+    np = of_parse_phandle(pdev->dev.of_node, "eth,quadrant-ctrl", 0);
+    if (!np) {
+      dev_err(&pdev->dev, "No %s specified\n", "eth,quadrant-ctrl");
+      err = -EINVAL;
+      goto out;
+    }
+    qc = devm_kmalloc(&pdev->dev, sizeof(*qc), GFP_KERNEL);
+    if (!qc) {
+      err = -ENOMEM;
+      goto out;
+    }
+    qc->quadrant_idx = pc->pci.quadrant_idx;
+    list_add(&qc->list, &quadrant_ctrl_list);
+    ret = of_address_to_resource(np, 0, &quadctrlres);
+    qc->regs = devm_ioremap_resource(&pdev->dev, &quadctrlres);
+    if (IS_ERR(qc->regs)) {
+      dev_err(&pdev->dev, "could not map quadrant-ctrl regs\n");
+      err = PTR_ERR(qc->regs);
+      goto out;
+    }
+  }
+  pc->quadrant_ctrl = qc;
+  dev_info(&pdev->dev, "quadrant ctrl virt %px quadrant %d\n", (void *)qc->regs, qc->quadrant_idx);
 
   // Get reserved memory region from Device-tree
   np = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);

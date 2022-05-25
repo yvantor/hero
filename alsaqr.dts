@@ -127,6 +127,11 @@
       reg-names = "soc-control";
       reg = <0x0 0x1a106000 0x0 0x4>;
     };
+    quadrant_ctrl0: quadrant-control@10400000 {
+      compatible = "eth,pulp-cluster";
+      reg-names = "quadrant-control";
+      reg = <0x0 0x10400000 0x0 0x5000 >;
+    };
     pulp-cluster@10000000 {
      compatible = "eth,alsaqr";
      reg-names = "tcdm", "peripheral", "axilite";
@@ -136,6 +141,7 @@
      eth,dm-cores = <1>;
      eth,cluster-idx =<0>;
      eth,soc-ctl = <&soc_ctl0>;
+     eth,quadrant-ctrl = <&quadrant_ctrl0>;
      eth,clint = <&clint0>;
      eth,plic = <&PLIC0>;
      };
