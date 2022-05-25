@@ -20,6 +20,7 @@ build: modules
 
 modules: $(patsubst %.o,%.c,$(pulp-objs)) $(patsubst %.o,%.h,$(pulp-objs))
 	$(MAKE) -S ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNEL_DIR) M=$(shell pwd) modules
+	cp pulp.ko ../../rootfs/
 
 dis: modules
 	$(CROSS_COMPILE)objdump -DS pulp.ko > pulp.disasm
