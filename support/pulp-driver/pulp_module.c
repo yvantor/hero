@@ -117,6 +117,8 @@ struct quadrant_ctrl {
 static void     set_isolation                    (struct pulp_cluster *pc, int iso);
 static int      isolate                          (struct pulp_cluster *pc);
 static int      deisolate                        (struct pulp_cluster *pc);
+static void     cluster_periph_write             (struct pulp_cluster *pc, uint32_t reg_off, uint32_t val);
+static uint32_t cluster_periph_read              (struct pulp_cluster *pc, uint32_t reg_off);
 static uint32_t get_isolation                    (uint32_t quadrant);
 static void     soc_reg_write                    (uint32_t reg_off, uint32_t val);
 static uint32_t soc_reg_read                     (uint32_t reg_off);
@@ -287,7 +289,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
     return retval;
   }
-  case PULPIOS_SCRATCH_W: {
+ case PULPIOS_SCRATCH_W: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     // Sanitize to 1 pcratch registers
@@ -352,6 +354,22 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (copy_to_user(p, &tlbe, sizeof(tlbe)))
       return -EFAULT;
     return ret;
+  }
+  case PULPIOC_PERIPH_W: { 
+    if (copy_from_user(&sreg, p, sizeof(sreg)))
+      return -EFAULT;
+    dbg("c periph write write reg %d val %#x\n", sreg.off, sreg.val);
+    cluster_periph_write(pc,sreg.off, sreg.val);
+    return 0;
+  }
+  case PULPIOC_PERIPH_R: { 
+    if (copy_from_user(&sreg, p, sizeof(sreg)))
+      return -EFAULT;
+    dbg("c periph read @ reg %d \n", sreg.off);
+    sreg.val = cluster_periph_read(pc,sreg.off);
+    if (copy_to_user(p, &sreg, sizeof(sreg)))
+      return -EFAULT;
+    return 0;
   }
   default:
     return -ENOTTY;
@@ -449,6 +467,7 @@ static void set_isolation(struct pulp_cluster *pc, int iso) {
 
 }
 
+
 /**
  * @brief Set the reset of the quadrant
  *
@@ -521,7 +540,7 @@ static int deisolate(struct pulp_cluster *pc) {
  */
 static uint32_t get_isolation(uint32_t quadrant) {
   
-  info("We cannot isolate quadrants as of now. \n Each quadrant has 2 TLBs and 2 mailbox, one for each direction\n");
+  info("We cannot isolate quadrants as of now. \n Each quadrant has 1 TLBs and 2 mailbox, one for each direction\n");
   info("soc_reg: %x\n", soc_reg_read(0));
 
   return 0;
@@ -542,6 +561,12 @@ static uint32_t soc_reg_read(uint32_t reg_off) {
   val = ioread32((uint32_t *)soc_regs + reg_off);
   spin_unlock(&soc_lock);
   return val;
+}
+static void cluster_periph_write(struct pulp_cluster *pc, uint32_t reg_off, uint32_t val) {
+  iowrite32(val,(uint32_t *)pc->pbase + reg_off);
+}
+static uint32_t cluster_periph_read (struct pulp_cluster *pc, uint32_t reg_off){
+  return ioread32((uint32_t *)pc->pbase + reg_off);
 }
 static void quadrant_ctrl_reg_write(struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val) {
   iowrite32(val, (uint32_t *)qc->regs + reg_off);
@@ -596,7 +621,6 @@ static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   if (tlbe->idx > 64)
     return -EINVAL;
 
-  uint32_t i;
   if (tlbe->loc == AXI_TLB_NARROW) {
     reg_off = QCTL_TLB_NARROW_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
   } else if (tlbe->loc == AXI_TLB_WIDE) {
@@ -620,7 +644,6 @@ static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   if (tlbe->idx > 64)
     return -EINVAL;
 
-  uint32_t i;
   if (tlbe->loc == AXI_TLB_NARROW) {
     reg_off = QCTL_TLB_NARROW_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
   } else if (tlbe->loc == AXI_TLB_WIDE) {
