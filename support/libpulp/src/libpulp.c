@@ -6,12 +6,10 @@
  */
 #include "libpulp.h"
 #include "herodev.h"
-#include "pulp_common.h"
 
 #include "debug.h"
 #include "fesrv.h"
 #include "o1heap.h"
-// #include "herodev.h"
 
 #include <assert.h>
 #include <errno.h>

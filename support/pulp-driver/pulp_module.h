@@ -52,8 +52,8 @@ struct pulp_cluster_info {
  * Macros to calculate the base address for mmap'ing regions to user space. Must be a multple of
  * PAGE_SHIFT
  */
-#define PULPITCH_MMAP_L3 (0 * sypconf(_SC_PAGE_SIZE))
-#define PULPITCH_MMAP_TCDM (1 * sypconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L3 (0 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
 
 /**
  * IOCTL
