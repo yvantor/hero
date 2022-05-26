@@ -66,7 +66,7 @@ struct pulpios_reg {
   uint32_t val;
 };
 
-enum AxiTlbFlags { AXI_TLB_VALID = 0x01, AXI_TLB_RO = 0x02 };
+enum AxiTlbFlags { AXI_TLB_VALID = 0x07, AXI_TLB_RO = 0x02 };
 enum AxiTlbLoc { AXI_TLB_NARROW = 1, AXI_TLB_WIDE = 2 };
 struct axi_tlb_entry {
   enum AxiTlbLoc loc;

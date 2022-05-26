@@ -290,20 +290,20 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   case PULPIOS_SCRATCH_W: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
-    // Sanitize to 4 pcratch registers
-    if (sreg.off > 4)
+    // Sanitize to 1 pcratch registers
+    if (sreg.off > 1)
       return -EINVAL;
     dbg("pcratch write reg %d val %#x\n", sreg.off, sreg.val);
-    soc_reg_write(SCTL_SCRATCH_0_REG_OFFSET / 4 + sreg.off, sreg.val);
+    soc_reg_write(sreg.off, sreg.val);
     return 0;
   }
   case PULPIOS_SCRATCH_R: {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     // Sanitize to 4 pcratch registers
-    if (sreg.off > 4)
+    if (sreg.off > 1)
       return -EINVAL;
-    sreg.val = soc_reg_read(SCTL_SCRATCH_0_REG_OFFSET / 4 + sreg.off);
+    sreg.val = soc_reg_read(sreg.off);
     dbg("pcratch read reg %d val %#x\n", sreg.off, sreg.val);
     if (copy_to_user(p, &sreg, sizeof(sreg)))
       return -EFAULT;
@@ -444,12 +444,9 @@ struct file_operations pulp_fops = {
  * @param iso 1 to isolate, 0 to de-isolate
  */
 static void set_isolation(struct pulp_cluster *pc, int iso) {
-  u32 mask, val;
-  val = iso ? 1U : 0U;
-  mask = (val << QCTL_ISOLATE_NARROW_IN_BIT) | (val << QCTL_ISOLATE_NARROW_OUT_BIT) |
-         (val << QCTL_ISOLATE_WIDE_IN_BIT) | (val << QCTL_ISOLATE_WIDE_OUT_BIT);
-  dbg("set_isolation quadrant %d value %01x\n", pc->quadrant_ctrl->quadrant_idx, mask);
-  quadrant_ctrl_reg_write(pc->quadrant_ctrl, QCTL_ISOLATE_REG_OFFSET / 4, mask);
+
+  info("We cannot isolate quadrants as of now. \n Each quadrant has 2 TLBs and 2 mailbox, one for each direction\n");
+
 }
 
 /**
@@ -458,11 +455,12 @@ static void set_isolation(struct pulp_cluster *pc, int iso) {
  * @param reset 1 to assert reset, 0 de-assert reset
  */
 static void set_reset(struct pulp_cluster *pc, int reset) {
-  dbg("set_reset quadrant %d %s\n", pc->quadrant_ctrl->quadrant_idx,
+  dbg("set_reset cluster %d %s\n", pc->quadrant_ctrl->quadrant_idx,
       reset ? "ASSERT" : "DE-ASSERT");
+
   // Active-low reset
-  quadrant_ctrl_reg_write(pc->quadrant_ctrl, QCTL_RESET_N_REG_OFFSET / 4,
-                          (reset ? 0U : 1U) << QCTL_RESET_N_RESET_N_BIT);
+  soc_reg_write(0,!reset);
+  dbg("soc_reg: %x\n", soc_reg_read(0));
 }
 
 /**
@@ -522,8 +520,12 @@ static int deisolate(struct pulp_cluster *pc) {
  * @param quadrant quadrant index to read isolation bits from
  */
 static uint32_t get_isolation(uint32_t quadrant) {
-  struct quadrant_ctrl *qc = get_quadrant_ctrl(quadrant);
-  return quadrant_ctrl_reg_read(qc, QCTL_ISOLATED_REG_OFFSET / 4) & 0xf;
+  
+  info("We cannot isolate quadrants as of now. \n Each quadrant has 2 TLBs and 2 mailbox, one for each direction\n");
+  info("soc_reg: %x\n", soc_reg_read(0));
+
+  return 0;
+
 }
 
 static void soc_reg_write(uint32_t reg_off, uint32_t val) {
@@ -602,8 +604,8 @@ static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   } else
     return -EINVAL;
 
-  // dbg("tlb write offset %#x first %#llx last %#llx base %#llx flags %#x\n", reg_off,
-  //     tlbe->first >> 12, tlbe->last >> 12, tlbe->base >> 12, tlbe->flags);
+  dbg("tlb write offset %#x first %#llx last %#llx base %#llx flags %#x\n", reg_off,
+       tlbe->first >> 12, tlbe->last >> 12, tlbe->base >> 12, tlbe->flags);
 
   iowrite64(tlbe->first >> 12, pc->quadrant_ctrl->regs + reg_off + 0);
   iowrite64(tlbe->last >> 12, pc->quadrant_ctrl->regs + reg_off + 8);
@@ -631,7 +633,7 @@ static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   tlbe->base = ioread64(pc->quadrant_ctrl->regs + reg_off + 16) << 12;
   tlbe->flags = ioread32(pc->quadrant_ctrl->regs + reg_off + 24);
 
-  // dbg("  TLB read first %#llx last %#llx\n", tlbe->first, tlbe->last);
+  dbg("  TLB read first %#llx last %#llx\n", tlbe->first, tlbe->last);
 
   return 0;
 }

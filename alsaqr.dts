@@ -141,6 +141,7 @@
      eth,dm-cores = <1>;
      eth,cluster-idx =<0>;
      eth,soc-ctl = <&soc_ctl0>;
+     eth,quadrant-idx =<0>;
      eth,quadrant-ctrl = <&quadrant_ctrl0>;
      eth,clint = <&clint0>;
      eth,plic = <&PLIC0>;
