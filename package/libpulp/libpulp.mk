@@ -20,12 +20,15 @@ ifneq ($(BR2_PACKAGE_LIBPULP_DEBUG_LEVEL),0)
 LIBPULP_CFLAGS += -g
 endif
 
+LIBPULP_EXTERNAL_INC_PATHS = $(BR2_EXTERNAL_HERO_PATH)/support/pulp-driver $(BR2_EXTERNAL_HERO_PATH)/support/include
+
 LIBPULP_MK_OPTS = PLATFORM=$(BR2_PACKAGE_HERO_PLATFORM) CFLAGS="$(LIBPULP_CFLAGS)"
 LIBPULP_MODULE_MAKE_OPTS = $(LIBPULP_MK_OPTS)
 
 LIBPULP_TARGET_MAKE_ENV = $(TARGET_MAKE_ENV) $(LIBPULP_MK_OPTS) \
 	HERO_PULP_INC_DIR=$(LIBPULP_PULP_INC) \
-	CROSS_COMPILE=$(TARGET_CROSS)
+	CROSS_COMPILE=$(TARGET_CROSS) \
+	INC_DIRS="$(LIBPULP_EXTERNAL_INC_PATHS)"
 
 define LIBPULP_CLEAN_BUILD
 	$(LIBPULP_TARGET_MAKE_ENV) $(MAKE1) -C $(@D) clean
@@ -37,8 +40,7 @@ define LIBPULP_BUILD_CMDS
 endef
 
 define LIBPULP_INSTALL_STAGING_CMDS
-	$(INSTALL) -D -m 0644 $(@D)/inc/pulp.h $(STAGING_DIR)/usr/include/pulp.h
-	$(INSTALL) -D -m 0644 $(@D)/inc/pulp_common.h $(STAGING_DIR)/usr/include/pulp_common.h
+	$(INSTALL) -D -m 0644 $(@D)/inc/pulp.h $(STAGING_DIR)/usr/include/libpulp.h
 	$(INSTALL) -D -m 0755 $(@D)/lib/libpulp.so $(STAGING_DIR)/usr/lib/libpulp.so
 	$(INSTALL) -D -m 0644 $(@D)/lib/libpulp.a $(STAGING_DIR)/usr/lib/libpulp.a
 endef
