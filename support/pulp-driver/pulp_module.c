@@ -590,8 +590,10 @@ static void set_clint(const struct pulpios_reg *sr) {
 }
 static void clear_clint(const struct pulpios_reg *sr) {
   u32 val;
+  dbg("about to read in the clint\n");
   spin_lock(&clint_lock);
   val = ioread32((uint32_t *)clint_regs + sr->off);
+  dbg("about to write in the clint\n");
   iowrite32(val & (~sr->val), (uint32_t *)clint_regs + sr->off);
   spin_unlock(&clint_lock);
   dbg("clint write reg %d value %08x\n", sr->off, val & (~sr->val));
@@ -896,7 +898,7 @@ int pulp_init(void) {
   struct pulp_cluster *pc;
 
   info("Loading pulp module\n");
-
+  
   // Create /sys/class/pulp in preparation of creating /dev/pulp
   pulp_dev.class = class_create(THIS_MODULE, CLASS_NAME);
   if (IS_ERR(pulp_dev.class)) {

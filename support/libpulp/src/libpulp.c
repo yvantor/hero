@@ -360,8 +360,8 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   }
 
   // Set cluster boot enable and fetch enable
-  pulp_scratch_reg_write(dev, 0, (uint64_t) 0x3);
-  pulp_scratch_reg_write(dev, 0, (uint64_t) 0x7);
+  pulp_scratch_reg_write(dev, 0, (uint32_t) 0x3);
+  pulp_scratch_reg_write(dev, 0, (uint32_t) 0x7);
 
   // Program boot-rom and set pointer to it in scratch1
   boot_data_off = ALIGN_UP(size, 0x100);

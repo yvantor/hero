@@ -96,10 +96,10 @@ int main(int argc, char *argv[]) {
 
   // No app specified discover and exit
   pulp_set_log_level(LOG_INFO);
-  if (argc < 2) {
-    pulp_discover(NULL, NULL, NULL);
-    exit(0);
-  }
+  // if (argc < 2) {
+  //   pulp_discover(NULL, NULL, NULL);
+  //   exit(0);
+  // }
 
   // Map clusters to user-space and pick one for tests
   pulp_set_log_level(LOG_MAX);
@@ -109,22 +109,23 @@ int main(int argc, char *argv[]) {
   pulp = clusters[cluster_idx];
 
   // Use L3 layout struct from the cluster provided as argument and set it's pointer in scratch[2]
-  pulp_scratch_reg_write(pulp, 2, (uint32_t)(uintptr_t)pulp->l3l_p);
+  // pulp_scratch_reg_write(pulp, 2, (uint32_t)(uintptr_t)pulp->l3l_p);
 
   // clear all interrupts
-  pulp_ipi_clear(pulp, 0, ~0U);
-  pulp_ipi_get(pulp, 0, &mask);
-  printf("clint after clear: %08x\n", mask);
+//  pulp_ipi_clear(pulp, 0, ~0U);
+//  pulp_ipi_get(pulp, 0, &mask);
+//  printf("clint after clear: %08x\n", mask);
 
   // Add TLB entry for required ranges
   reset_tlbs(pulp);
-  set_direct_tlb_map(pulp, 0, 0x01000000, 0x0101ffff); // BOOTROM
-  set_direct_tlb_map(pulp, 1, 0x02000000, 0x02000fff); // SoC Control
-  set_direct_tlb_map(pulp, 2, 0x04000000, 0x040fffff); // CLINT
-  set_direct_tlb_map(pulp, 3, 0x10000000, 0x105fffff); // Quadrants
-  set_direct_tlb_map(pulp, 4, 0x80000000, 0xffffffff); // HBM0/1
+  
+  set_direct_tlb_map(pulp, 0, 0x10000000, 0x10400000); 
+  //set_direct_tlb_map(pulp, 1, 0x02000000, 0x02000fff); // SoC Control
+  //set_direct_tlb_map(pulp, 2, 0x04000000, 0x040fffff); // CLINT
+  //set_direct_tlb_map(pulp, 3, 0x10000000, 0x105fffff); // Quadrants
+  //set_direct_tlb_map(pulp, 4, 0x80000000, 0xffffffff); // HBM0/1
 
-  for(unsigned i = 0; i < 5; ++i) {
+  for(unsigned i = 0; i < 1; ++i) {
     memset(&tlb_entry, 0, sizeof(tlb_entry));
     tlb_entry.loc = AXI_TLB_WIDE;
     tlb_entry.idx = i;
@@ -139,6 +140,8 @@ int main(int argc, char *argv[]) {
           tlb_entry.first, tlb_entry.last, tlb_entry.base, tlb_entry.flags);
   }
 
+  exit(0);
+  
   // De-isolate quadrant
   isolate_all(clusters, nr_dev, 1);
   ret = isolate_all(clusters, nr_dev, 0);
@@ -167,49 +170,49 @@ int main(int argc, char *argv[]) {
   printf("alloc l3l_v->heap: %08x\r\n", pulp->l3l->heap);
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
-  snprintf(shared_l3_v, 1024, "this is linux");
-
-  if (argc >= 2) {
-    size = pulp_load_bin(pulp, argv[1]);
-    if (size < 0)
-      goto exit;
-
-    printf("Data in allocated L3:\n");
-    hexdump((void *)shared_l3_v, 32);
-    printf("Data in L1:\n");
-    hexdump(pulp->l1.v_addr, 32);
-
-    // Fill some stuff in the mailbox
-    pulp_mbox_write(pulp, 100);
-    pulp_mbox_write(pulp, 101);
-    pulp_mbox_write(pulp, 102);
-
-    printf("Set interrupt on core %d\n", 1 + cluster_idx * 9);
-    pulp_ipi_set(pulp, 0, 1 << (1 + cluster_idx * 9));
-
-    printf("Waiting for program to terminate..\n");
-    fflush(stdout);
-    fs->abortAfter = 60;
-    fesrv_run(fs);
-    // sleep(3);
-
-    printf("Data in allocated L3:\n");
-    hexdump((void *)shared_l3_v, 32);
-    printf("Data in L1:\n");
-    hexdump(pulp->l1.v_addr, 6 * 0x10);
-
-    // read mailbox
-    uint32_t msg;
-    while (pulp_mbox_try_read(pulp, &msg)) {
-      printf("Mailbox: %d\n", msg);
-    }
-
-    pulp_ipi_get(pulp, 0, &mask);
-    printf("clint after completion: %08x\n", mask);
-  }
-
-exit:
-  ret = isolate_all(clusters, nr_dev, 1);
+//  snprintf(shared_l3_v, 1024, "this is linux");
+//
+//  if (argc >= 2) {
+//    size = pulp_load_bin(pulp, argv[1]);
+//    if (size < 0)
+//      goto exit;
+//
+//    printf("Data in allocated L3:\n");
+//    hexdump((void *)shared_l3_v, 32);
+//    printf("Data in L1:\n");
+//    hexdump(pulp->l1.v_addr, 32);
+//
+//    // Fill some stuff in the mailbox
+//    pulp_mbox_write(pulp, 100);
+//    pulp_mbox_write(pulp, 101);
+//    pulp_mbox_write(pulp, 102);
+//
+//    printf("Set interrupt on core %d\n", 1 + cluster_idx * 9);
+//    pulp_ipi_set(pulp, 0, 1 << (1 + cluster_idx * 9));
+//
+//    printf("Waiting for program to terminate..\n");
+//    fflush(stdout);
+//    fs->abortAfter = 60;
+//    fesrv_run(fs);
+//    // sleep(3);
+//
+//    printf("Data in allocated L3:\n");
+//    hexdump((void *)shared_l3_v, 32);
+//    printf("Data in L1:\n");
+//    hexdump(pulp->l1.v_addr, 6 * 0x10);
+//
+//    // read mailbox
+//    uint32_t msg;
+//    while (pulp_mbox_try_read(pulp, &msg)) {
+//      printf("Mailbox: %d\n", msg);
+//    }
+//
+//    pulp_ipi_get(pulp, 0, &mask);
+//    printf("clint after completion: %08x\n", mask);
+//  }
+//
+//exit:
+//  ret = isolate_all(clusters, nr_dev, 1);
 
   printf("Exiting\n");
   return ret;
