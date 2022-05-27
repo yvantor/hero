@@ -359,13 +359,24 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
     ret = size;
   }
 
-  // Set entry-point
-  pulp_scratch_reg_write(dev, 0, (uint64_t)dev->l3.p_addr);
+  // Set cluster boot enable and fetch enable
+  pulp_scratch_reg_write(dev, 0, (uint64_t) 0x3);
+  pulp_scratch_reg_write(dev, 0, (uint64_t) 0x7);
 
   // Program boot-rom and set pointer to it in scratch1
   boot_data_off = ALIGN_UP(size, 0x100);
   pr_trace("copy bootrom data to L3 and setting pointer in scratch1\n");
-  pulp_scratch_reg_write(dev, 1, (uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x40,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x44,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x48,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x4C,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x50,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x54,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x58,(uint64_t)dev->l3.p_addr + boot_data_off);
+  pulp_periph_reg_write(dev,0x5C,(uint64_t)dev->l3.p_addr + boot_data_off);
+  // Enable cluster instruction cache
+  pulp_periph_reg_write(dev,0x1400,(uint32_t)0xffffffff);
+
   bd = malloc(sizeof(*bd));
   if (!bd) {
     pr_error("error allocating boot data: %s\n", strerror(errno));
@@ -376,6 +387,11 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
 
   memcpy((uint8_t *)dev->l3.v_addr + boot_data_off, bd, sizeof(*bd));
   free(bd);
+
+  // ri5cy's fetch enable
+  ret = pulp_periph_reg_write(dev,0x8,(uint32_t)0xff);
+
+  return ret;
 
 abort:
   fclose(fd);
@@ -394,6 +410,27 @@ int pulp_isolate(pulp_dev_t *dev, int iso) {
     pr_error("ioctl() failed. %s \n", strerror(errno));
   } else {
     pr_debug("%sisolate success on quadrant %d\n", iso ? "" : "de", dev->pci.quadrant_idx);
+  }
+  return ret;
+}
+
+int pulp_periph_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val) {
+  int ret;
+  struct pulpios_reg sreg;
+  sreg.off = reg;
+  sreg.val = val;
+  if ((ret = ioctl(dev->fd, PULPIOC_PERIPH_W, &sreg))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+  }
+  return ret;
+}
+       
+int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val) {
+  int ret;
+  struct pulpios_reg sreg;
+  sreg.off = reg;
+  if ((ret = ioctl(dev->fd, PULPIOC_PERIPH_R, &sreg))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
   }
   return ret;
 }

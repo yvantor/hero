@@ -158,6 +158,27 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name);
 int pulp_isolate(pulp_dev_t *dev, int iso);
 
 /**
+ * @brief Write into cluster peripheral registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @param val value to write to
+ * @return int return value of the ioctl call, 0 on success, negative error on failure
+ */
+int pulp_periph_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val);
+
+/**
+ * @brief Read from cluster peripheral registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @param val value that was read
+ * @return int return value of the ioctl call, 0 on success, negative error on failure
+ */
+int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val);
+
+  
+/**
  * @brief Write to a SoC scratch register
  *
  * @param dev pointer to pulp struct
@@ -282,4 +303,6 @@ int pulp_tlb_read(pulp_dev_t *dev, struct axi_tlb_entry *e);
  */
 void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl);
 
+  
+ 
 //!@}

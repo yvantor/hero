@@ -38,8 +38,8 @@ MODULE_DEVICE_TABLE(of, pulp_of_match);
 #define info(...) printk(KERN_INFO "PULP Info: " __VA_ARGS__)
 #define warn(...) printk(KERN_WARNING "PULP Warning: " __VA_ARGS__)
 
-#define DEVICE_NAME "PULP"
-#define CLASS_NAME "PULP"
+#define DEVICE_NAME "pulp"
+#define CLASS_NAME "pulp"
 
 // VM_RESERVERD for mmap
 #ifndef VM_RESERVED
