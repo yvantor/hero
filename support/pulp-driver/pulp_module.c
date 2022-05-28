@@ -124,8 +124,6 @@ static void     soc_reg_write                    (uint32_t reg_off, uint32_t val
 static uint32_t soc_reg_read                     (uint32_t reg_off);
 static void     quadrant_ctrl_reg_write          (struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val);
 static uint32_t quadrant_ctrl_reg_read           (struct quadrant_ctrl *qc, uint32_t reg_off);
-static void     quadrant_ctrl_reg_write64        (struct quadrant_ctrl *qc, uint32_t reg_off, uint64_t val);
-static uint64_t quadrant_ctrl_reg_read64         (struct quadrant_ctrl *qc, uint32_t reg_off);
 static void     set_clint                        (const struct pulpios_reg *sr);
 static void     clear_clint                      (const struct pulpios_reg *sr);
 static uint32_t get_clint                        (uint32_t reg_off);
@@ -574,12 +572,6 @@ static void quadrant_ctrl_reg_write(struct quadrant_ctrl *qc, uint32_t reg_off, 
 static uint32_t quadrant_ctrl_reg_read(struct quadrant_ctrl *qc, uint32_t reg_off) {
   return ioread32((uint32_t *)qc->regs + reg_off);
 }
-static void quadrant_ctrl_reg_write64(struct quadrant_ctrl *qc, uint32_t reg_off, uint64_t val) {
-  iowrite64(val, (uint32_t *)qc->regs + reg_off);
-}
-static uint64_t quadrant_ctrl_reg_read64(struct quadrant_ctrl *qc, uint32_t reg_off) {
-  return ioread64((uint32_t *)qc->regs + reg_off);
-}
 static void set_clint(const struct pulpios_reg *sr) {
   u32 val;
   spin_lock(&clint_lock);
@@ -633,10 +625,13 @@ static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   dbg("tlb write offset %#x first %#llx last %#llx base %#llx flags %#x\n", reg_off,
        tlbe->first >> 12, tlbe->last >> 12, tlbe->base >> 12, tlbe->flags);
 
-  iowrite64(tlbe->first >> 12, pc->quadrant_ctrl->regs + reg_off + 0);
-  iowrite64(tlbe->last >> 12, pc->quadrant_ctrl->regs + reg_off + 8);
-  iowrite64(tlbe->base >> 12, pc->quadrant_ctrl->regs + reg_off + 16);
-  iowrite32((uint32_t)tlbe->flags, pc->quadrant_ctrl->regs + reg_off + 24);
+  iowrite32( ( (tlbe->first >> 12) <<32 ) >> 32, pc->quadrant_ctrl->regs + reg_off + 0 );
+  iowrite32(   (tlbe->first >> 12)        >> 32, pc->quadrant_ctrl->regs + reg_off + 4 );
+  iowrite32( ( (tlbe->last  >> 12) <<32 ) >> 32, pc->quadrant_ctrl->regs + reg_off + 8 );
+  iowrite32(   (tlbe->last  >> 12)        >> 32, pc->quadrant_ctrl->regs + reg_off + 12);
+  iowrite32( ( (tlbe->base  >> 12) <<32 ) >> 32, pc->quadrant_ctrl->regs + reg_off + 16);
+  iowrite32(   (tlbe->base  >> 12)        >> 32, pc->quadrant_ctrl->regs + reg_off + 20);
+  iowrite32((uint32_t)    tlbe->flags                    , pc->quadrant_ctrl->regs + reg_off + 24);
   return 0;
 }
 static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
@@ -653,11 +648,10 @@ static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   } else
     return -EINVAL;
 
-  tlbe->first = ioread64(pc->quadrant_ctrl->regs + reg_off + 0) << 12;
-  tlbe->last = ioread64(pc->quadrant_ctrl->regs + reg_off + 8) << 12;
-  tlbe->base = ioread64(pc->quadrant_ctrl->regs + reg_off + 16) << 12;
+  tlbe->first = (  (uint64_t) ( (uint64_t) ioread32(pc->quadrant_ctrl->regs + reg_off + 4 ) << 32 ) | ioread32(pc->quadrant_ctrl->regs + reg_off + 0 )  ) << 12;
+  tlbe->last  = (  (uint64_t) ( (uint64_t) ioread32(pc->quadrant_ctrl->regs + reg_off + 12) << 32 ) | ioread32(pc->quadrant_ctrl->regs + reg_off + 8 )  ) << 12;
+  tlbe->base  = (  (uint64_t) ( (uint64_t) ioread32(pc->quadrant_ctrl->regs + reg_off + 20) << 32 ) | ioread32(pc->quadrant_ctrl->regs + reg_off + 16)  ) << 12;
   tlbe->flags = ioread32(pc->quadrant_ctrl->regs + reg_off + 24);
-
   dbg("  TLB read first %#llx last %#llx\n", tlbe->first, tlbe->last);
 
   return 0;
