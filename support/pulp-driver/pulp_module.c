@@ -455,29 +455,35 @@ struct file_operations pulp_fops = {
 //
 // ----------------------------------------------------------------------------
 /**
+ * @brief Set the reset of the quadrant
+ *
+ * @param reset 1 to assert reset, 0 de-assert reset
+ */
+static void set_reset(struct pulp_cluster *pc, int reset) {
+
+  uint32_t scw;
+
+  dbg("set_reset cluster %d %s\n", pc->quadrant_ctrl->quadrant_idx,
+      reset ? "ASSERT" : "DE-ASSERT");
+
+  scw=1;
+  if(reset==1)
+    scw=0;
+  
+  // Active-low reset
+  soc_reg_write(0,scw);
+  dbg("soc_reg: %x\n", soc_reg_read(0));
+}
+
+/**
  * @brief Set the isolation of the cluster in the soc-control register
  *
  * @param iso 1 to isolate, 0 to de-isolate
  */
 static void set_isolation(struct pulp_cluster *pc, int iso) {
 
-  info("We cannot isolate quadrants as of now. \n Each quadrant has 2 TLBs and 2 mailbox, one for each direction\n");
+  set_reset(pc, iso);
 
-}
-
-
-/**
- * @brief Set the reset of the quadrant
- *
- * @param reset 1 to assert reset, 0 de-assert reset
- */
-static void set_reset(struct pulp_cluster *pc, int reset) {
-  dbg("set_reset cluster %d %s\n", pc->quadrant_ctrl->quadrant_idx,
-      reset ? "ASSERT" : "DE-ASSERT");
-
-  // Active-low reset
-  soc_reg_write(0,!reset);
-  dbg("soc_reg: %x\n", soc_reg_read(0));
 }
 
 /**
@@ -493,13 +499,12 @@ static int isolate(struct pulp_cluster *pc) {
   set_isolation(pc, 1);
   do {
     iso = get_isolation(quadrant_id);
-    if (iso != 0xf)
+    if (iso != 0x0)
       udelay(10);
-  } while (iso != 0xf && --timeout);
+  } while (iso != 0x0 && --timeout);
 
-  if (iso == 0xf) {
+  if (iso != 0x0) {
     set_reset(pc, 1);
-  } else {
     return -ETIMEDOUT;
   }
   return 0;
@@ -518,11 +523,11 @@ static int deisolate(struct pulp_cluster *pc) {
   set_isolation(pc, 0);
   do {
     iso = get_isolation(quadrant_id);
-    if (iso != 0x0)
+    if (iso != 0x1)
       udelay(10);
-  } while (iso != 0x0 && --timeout);
+  } while (iso != 0x1 && --timeout);
 
-  if (iso != 0x0) {
+  if (iso != 0x1) {
     set_isolation(pc, 1);
     set_reset(pc, 1);
     return -ETIMEDOUT;
@@ -537,11 +542,12 @@ static int deisolate(struct pulp_cluster *pc) {
  * @param quadrant quadrant index to read isolation bits from
  */
 static uint32_t get_isolation(uint32_t quadrant) {
-  
-  info("We cannot isolate quadrants as of now. \n Each quadrant has 1 TLBs and 2 mailbox, one for each direction\n");
-  info("soc_reg: %x\n", soc_reg_read(0));
 
-  return 0;
+  uint32_t srv;
+  srv = soc_reg_read(0);
+  info("soc_reg: %x\n", srv);
+
+  return srv;
 
 }
 
@@ -617,8 +623,6 @@ static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
 
   if (tlbe->loc == AXI_TLB_NARROW) {
     reg_off = QCTL_TLB_NARROW_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
-  } else if (tlbe->loc == AXI_TLB_WIDE) {
-    reg_off = QCTL_TLB_WIDE_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
   } else
     return -EINVAL;
 
@@ -642,8 +646,6 @@ static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
     return -EINVAL;
 
   if (tlbe->loc == AXI_TLB_NARROW) {
-    reg_off = QCTL_TLB_NARROW_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
-  } else if (tlbe->loc == AXI_TLB_WIDE) {
     reg_off = QCTL_TLB_NARROW_REG_OFFSET + tlbe->idx * TLB_ENTRY_BYTES;
   } else
     return -EINVAL;

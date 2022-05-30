@@ -54,8 +54,6 @@ void set_direct_tlb_map(pulp_dev_t *pulp, uint32_t idx, uint32_t low, uint32_t h
   tlb_entry.last = high;
   tlb_entry.base = low;
   pulp_tlb_write(pulp, &tlb_entry);
-  tlb_entry.loc = AXI_TLB_WIDE;
-  pulp_tlb_write(pulp, &tlb_entry);
 }
 
 void reset_tlbs(pulp_dev_t *pulp) {
@@ -67,8 +65,6 @@ void reset_tlbs(pulp_dev_t *pulp) {
   for(unsigned idx = 0; idx < 32; ++idx) {
     tlb_entry.idx = idx;
     tlb_entry.loc = AXI_TLB_NARROW;
-    pulp_tlb_write(pulp, &tlb_entry);
-    tlb_entry.loc = AXI_TLB_WIDE;
     pulp_tlb_write(pulp, &tlb_entry);
   }
 }
@@ -105,7 +101,7 @@ int main(int argc, char *argv[]) {
   pulp_set_log_level(LOG_MAX);
   clusters = pulp_mmap_all(&nr_dev);
   // Restrict to local cluster and remote on qc
-  nr_dev = 1 + 2;
+  nr_dev = 1 ;
   pulp = clusters[cluster_idx];
 
   // Use L3 layout struct from the cluster provided as argument and set it's pointer in scratch[2]
@@ -118,8 +114,8 @@ int main(int argc, char *argv[]) {
 
   // Add TLB entry for required ranges
   reset_tlbs(pulp);
-  
-  set_direct_tlb_map(pulp, 0, 0x10000000, 0x10400000); 
+
+  //set_direct_tlb_map(pulp, 0, 0x10000000, 0x10400000); 
   //set_direct_tlb_map(pulp, 1, 0x02000000, 0x02000fff); // SoC Control
   //set_direct_tlb_map(pulp, 2, 0x04000000, 0x040fffff); // CLINT
   //set_direct_tlb_map(pulp, 3, 0x10000000, 0x105fffff); // Quadrants
@@ -127,20 +123,12 @@ int main(int argc, char *argv[]) {
 
   for(unsigned i = 0; i < 1; ++i) {
     memset(&tlb_entry, 0, sizeof(tlb_entry));
-    tlb_entry.loc = AXI_TLB_WIDE;
-    tlb_entry.idx = i;
-    pulp_tlb_read(pulp, &tlb_entry);
-    printf("TLB readback Wide: idx %ld first %012lx last %012lx base %012lx flags %02x\n", tlb_entry.idx,
-          tlb_entry.first, tlb_entry.last, tlb_entry.base, tlb_entry.flags);
-    memset(&tlb_entry, 0, sizeof(tlb_entry));
     tlb_entry.loc = AXI_TLB_NARROW;
     tlb_entry.idx = i;
     pulp_tlb_read(pulp, &tlb_entry);
     printf("TLB readback Narrow: idx %ld first %012lx last %012lx base %012lx flags %02x\n", tlb_entry.idx,
           tlb_entry.first, tlb_entry.last, tlb_entry.base, tlb_entry.flags);
   }
-
-  exit(0);
   
   // De-isolate quadrant
   isolate_all(clusters, nr_dev, 1);
@@ -152,14 +140,17 @@ int main(int argc, char *argv[]) {
 
   // setup front-end server. Do this here so that the host communication data is before any other
   // data in L3 to prevent overwriting thereof
-  fesrv_t *fs = malloc(sizeof(fesrv_t));
-  fesrv_init(fs, pulp, &a2h_rb_addr);
-  pulp->l3l->a2h_rb = (uint32_t)(uintptr_t)a2h_rb_addr;
+  //fesrv_t *fs = malloc(sizeof(fesrv_t));
+  //fesrv_init(fs, pulp, &a2h_rb_addr);
+  //pulp->l3l->a2h_rb = (uint32_t)(uintptr_t)a2h_rb_addr;
 
   // fill memory with known pattern
   if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 'T'))
     return -1;
 
+  printf("memtest l1 passed\n");
+  exit(0);
+  
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048
   // For largest conv2d problem: (64*112*112+64*64*7*7+64*112*112)*sizeof(double) = 14112*1024
