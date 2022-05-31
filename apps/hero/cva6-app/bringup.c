@@ -32,6 +32,20 @@
 
 #define ALIGN_UP(x, p) (((x) + (p)-1) & ~((p)-1))
 
+
+int wakeup_all(pulp_dev_t **clusters, uint32_t nr_dev) {
+  int ret = 0;
+  int status;
+  for (uint32_t i = 0; i < nr_dev; ++i) {
+    status = pulp_wakeup(clusters[i]);
+    if (status != 0) {
+      printf("Wakeup failed for cluster %d: %s\n", i, strerror(ret));
+      ret -= 1;
+    }
+  }
+  return ret;
+}
+
 int isolate_all(pulp_dev_t **clusters, uint32_t nr_dev, uint32_t iso) {
   int ret = 0;
   int status;
@@ -149,7 +163,12 @@ int main(int argc, char *argv[]) {
     return -1;
 
   printf("memtest l1 passed\n");
+
+  wakeup_all(clusters,nr_dev);
+  printf("Choped the Suey!\n");
+  
   exit(0);
+  
   
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048

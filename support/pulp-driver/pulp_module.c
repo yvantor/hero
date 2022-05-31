@@ -117,6 +117,7 @@ struct quadrant_ctrl {
 static void     set_isolation                    (struct pulp_cluster *pc, int iso);
 static int      isolate                          (struct pulp_cluster *pc);
 static int      deisolate                        (struct pulp_cluster *pc);
+static int      wakeup                           (struct pulp_cluster *pc);
 static void     cluster_periph_write             (struct pulp_cluster *pc, uint32_t reg_off, uint32_t val);
 static uint32_t cluster_periph_read              (struct pulp_cluster *pc, uint32_t reg_off);
 static uint32_t get_isolation                    (uint32_t quadrant);
@@ -279,10 +280,22 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (get_user(options, p))
       return -EFAULT;
 
-    if (options & PULPIOS_ISOLATE)
-      retval = isolate(pc);
-    if (options & PULPIOS_DEISOLATE) {
-      retval = deisolate(pc);
+    switch (options) {
+      case(PULPIOS_ISOLATE):    {
+        retval = isolate(pc);
+        return 0;
+      }
+      case(PULPIOS_DEISOLATE):  {
+        retval = deisolate(pc);
+        return 0;
+      }
+      case(PULPIOS_WAKEUP):     {
+        retval = wakeup(pc);
+        return 0;
+      }
+      default:
+        return -EFAULT;
+
     }
 
     return retval;
@@ -533,6 +546,32 @@ static int deisolate(struct pulp_cluster *pc) {
     return -ETIMEDOUT;
   }
 
+  return 0;
+}
+
+
+/**
+ * @brief Enable clock and fetch enable of the cluster
+ *
+ * @param quadrant quadrant index to read isolation bits from
+ */
+static int wakeup(struct pulp_cluster *pc) {
+  unsigned quadrant_id = pc->pci.quadrant_idx;
+  u32 timeout = 1000; // [x10 us]
+  uint32_t iso;
+  
+  soc_reg_write(0,0x3); 
+  soc_reg_write(0,0x7);
+  do {
+    iso = get_isolation(quadrant_id);
+    if (iso != 0x7)
+      udelay(10);
+  } while (iso != 0x7 && --timeout);
+
+  if (iso != 0x7) {
+    set_reset(pc, 1);
+    return -ETIMEDOUT;
+  }
   return 0;
 }
 

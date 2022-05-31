@@ -307,6 +307,29 @@ int pulp_reset(pulp_dev_t *dev) {
   return 0;
 }
 
+int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr) {
+  uint32_t ret;
+  
+  pr_trace("Write boot address\n");
+  for(int i = 0; i<8; i++) {
+    ret = pulp_periph_reg_write(dev, CPER_RI5CY_BOOTADDR0 +(i*0x4),(uint32_t)boot_addr);
+    if(ret)
+      return ret;
+  }
+  
+  pr_trace("Enable cluster instruction cache\n");
+  ret = pulp_periph_reg_write(dev,CPER_INSTRSCACHE_FE,(uint32_t)0xffffffff);
+  if(ret)
+    return ret;
+
+  pr_trace("Fetch enable cores\n");
+  ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
+  if(ret)
+    return ret;
+  
+  return 0;
+}
+  
 int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   FILE *fd;
   size_t size;
@@ -359,23 +382,9 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
     ret = size;
   }
 
-  // Set cluster boot enable and fetch enable
-  pulp_scratch_reg_write(dev, 0, (uint32_t) 0x3);
-  pulp_scratch_reg_write(dev, 0, (uint32_t) 0x7);
 
   // Program boot-rom and set pointer to it in scratch1
   boot_data_off = ALIGN_UP(size, 0x100);
-  pr_trace("copy bootrom data to L3 and setting pointer in scratch1\n");
-  pulp_periph_reg_write(dev,0x40,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x44,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x48,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x4C,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x50,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x54,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x58,(uint64_t)dev->l3.p_addr + boot_data_off);
-  pulp_periph_reg_write(dev,0x5C,(uint64_t)dev->l3.p_addr + boot_data_off);
-  // Enable cluster instruction cache
-  pulp_periph_reg_write(dev,0x1400,(uint32_t)0xffffffff);
 
   bd = malloc(sizeof(*bd));
   if (!bd) {
@@ -389,7 +398,8 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   free(bd);
 
   // ri5cy's fetch enable
-  ret = pulp_periph_reg_write(dev,0x8,(uint32_t)0xff);
+  pulp_wakeup(dev);
+  ret = pulp_launch_cluster(dev,bd->boot_addr);
 
   return ret;
 
@@ -414,7 +424,20 @@ int pulp_isolate(pulp_dev_t *dev, int iso) {
   return ret;
 }
 
-int pulp_periph_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val) {
+int pulp_wakeup(pulp_dev_t *dev) {
+  // Forward to the driver
+  uint32_t cmd;
+  int ret;
+  cmd = PULPIOS_WAKEUP;
+  if ((ret = ioctl(dev->fd, PULPIOC_SET_OPTIONS, &cmd))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+  } else {
+    pr_debug("Wakeup success on quadrant %d\n", dev->pci.quadrant_idx);
+  }
+  return ret;
+}
+
+int pulp_periph_reg_write (pulp_dev_t *dev, uint32_t reg, uint32_t val) {
   int ret;
   struct pulpios_reg sreg;
   sreg.off = reg;

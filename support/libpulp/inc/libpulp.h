@@ -158,6 +158,27 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name);
 int pulp_isolate(pulp_dev_t *dev, int iso);
 
 /**
+ * @brief Wake up of the cluster. Forwarded to driver. Return can be
+ * -ETIMEOUT if isolated response not received
+ * @details
+ *
+ * @param dev pointer to pulp struct
+ * @return 0 on success, negative ERRNO on failure
+ */
+int pulp_wakeup(pulp_dev_t *dev);
+
+/**
+ * @brief Wake up of the cluster. Forwarded to driver. Return can be
+ * -ETIMEOUT if isolated response not received
+ * @details
+ *
+ * @param dev pointer to pulp struct
+ * @param boot_addr boot addresses for CV32E40P
+ * @return 0 on success, negative ERRNO on failure
+ */
+int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr);
+
+/**
  * @brief Write into cluster peripheral registers
  *
  * @param dev pointer to pulp struct

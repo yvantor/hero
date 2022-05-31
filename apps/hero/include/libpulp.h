@@ -143,6 +143,16 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name);
 int pulp_isolate(pulp_dev_t *dev, int iso);
 
 /**
+ * @brief Wake of pulp cluster. Forwarded to driver. Return can be
+ * -ETIMEOUT if isolated response not received
+ * @details
+ *
+ * @param dev pointer to pulp struct
+ * @return 0 on success, negative ERRNO on failure
+ */
+int pulp_wakeup(pulp_dev_t *dev);
+
+/**
  * @brief Write to a SoC scratch register
  *
  * @param dev pointer to pulp struct

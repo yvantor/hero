@@ -152,7 +152,17 @@ struct axi_tlb_entry {
 #define PULPIOC_PERIPH_R _IOW(PULPIOC_MAGIC, 11, struct pulpios_reg)
 
 // Values for PULPIOC_SET_OPTIONS
-#define PULPIOS_DEISOLATE 0x0001 /* Isolate the cluster */
-#define PULPIOS_ISOLATE 0x0002   /* De-isolate the cluster */
+#define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
+#define PULPIOS_ISOLATE   0x0002   /* Isolate the cluster    */
+#define PULPIOS_WAKEUP    0x0003   /* Wake up the cluster    */
+
+
+/**
+ * @brief Cluster peripheral registers
+ *
+ */
+#define CPER_CONTROLUNIT_FE  0x8
+#define CPER_RI5CY_BOOTADDR0 0x40
+#define CPER_INSTRSCACHE_FE  0x14000
 
 #endif
