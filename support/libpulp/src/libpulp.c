@@ -317,10 +317,10 @@ int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr) {
       return ret;
   }
   
-  pr_trace("Enable cluster instruction cache\n");
-  ret = pulp_periph_reg_write(dev,CPER_INSTRSCACHE_FE,(uint32_t)0xffffffff);
-  if(ret)
-    return ret;
+  // pr_trace("Enable cluster instruction cache\n");
+  // ret = pulp_periph_reg_write(dev,CPER_INSTRSCACHE_FE,(uint32_t)0xffffffff);
+  // if(ret)
+  //   return ret;
 
   pr_trace("Fetch enable cores\n");
   ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
@@ -725,7 +725,7 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd) {
   // tcdm_offset, hartid_base and mhartid CSR
   bd->tcdm_start = 0x10000000;
   // size of TCDM address space
-  bd->tcdm_size = 0x20000;
+  bd->tcdm_size = 0x40000;
   // offset between cluster address spaces
   bd->tcdm_offset = 0x40000;
   bd->global_mem_start = (uint32_t)(uintptr_t)(dev->pci.l3_paddr + dev->l3_data_offset);

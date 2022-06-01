@@ -154,9 +154,9 @@ int main(int argc, char *argv[]) {
 
   // setup front-end server. Do this here so that the host communication data is before any other
   // data in L3 to prevent overwriting thereof
-  //fesrv_t *fs = malloc(sizeof(fesrv_t));
-  //fesrv_init(fs, pulp, &a2h_rb_addr);
-  //pulp->l3l->a2h_rb = (uint32_t)(uintptr_t)a2h_rb_addr;
+  fesrv_t *fs = malloc(sizeof(fesrv_t));
+  fesrv_init(fs, pulp, &a2h_rb_addr);
+  pulp->l3l->a2h_rb = (uint32_t)(uintptr_t)a2h_rb_addr;
 
   // fill memory with known pattern
   if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 'T'))
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
   wakeup_all(clusters,nr_dev);
   printf("Choped the Suey!\n");
   
-  exit(0);
+  // exit(0);
   
   
   // and some test scratch l3 memory
@@ -180,49 +180,51 @@ int main(int argc, char *argv[]) {
   printf("alloc l3l_v->heap: %08x\r\n", pulp->l3l->heap);
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
-//  snprintf(shared_l3_v, 1024, "this is linux");
-//
-//  if (argc >= 2) {
-//    size = pulp_load_bin(pulp, argv[1]);
-//    if (size < 0)
-//      goto exit;
-//
-//    printf("Data in allocated L3:\n");
-//    hexdump((void *)shared_l3_v, 32);
-//    printf("Data in L1:\n");
-//    hexdump(pulp->l1.v_addr, 32);
-//
-//    // Fill some stuff in the mailbox
-//    pulp_mbox_write(pulp, 100);
-//    pulp_mbox_write(pulp, 101);
-//    pulp_mbox_write(pulp, 102);
-//
-//    printf("Set interrupt on core %d\n", 1 + cluster_idx * 9);
-//    pulp_ipi_set(pulp, 0, 1 << (1 + cluster_idx * 9));
-//
-//    printf("Waiting for program to terminate..\n");
-//    fflush(stdout);
-//    fs->abortAfter = 60;
-//    fesrv_run(fs);
-//    // sleep(3);
-//
-//    printf("Data in allocated L3:\n");
-//    hexdump((void *)shared_l3_v, 32);
-//    printf("Data in L1:\n");
-//    hexdump(pulp->l1.v_addr, 6 * 0x10);
-//
-//    // read mailbox
-//    uint32_t msg;
-//    while (pulp_mbox_try_read(pulp, &msg)) {
-//      printf("Mailbox: %d\n", msg);
-//    }
-//
-//    pulp_ipi_get(pulp, 0, &mask);
-//    printf("clint after completion: %08x\n", mask);
-//  }
-//
-//exit:
-//  ret = isolate_all(clusters, nr_dev, 1);
+  snprintf(shared_l3_v, 1024, "this is linux");
+  set_direct_tlb_map(pulp, 0, 0x90000000, 0xA0000000); // Reserved L3
+  set_direct_tlb_map(pulp, 1, 0x1A100000, 0x1A223000); // Peripherals
+
+  if (argc >= 2) {
+    size = pulp_load_bin(pulp, argv[1]);
+    if (size < 0)
+      goto exit;
+
+    printf("Data in allocated L3:\n");
+    hexdump((void *)shared_l3_v, 32);
+    printf("Data in L1:\n");
+    hexdump(pulp->l1.v_addr, 32);
+
+    // Fill some stuff in the mailbox
+    // pulp_mbox_write(pulp, 100);
+    // pulp_mbox_write(pulp, 101);
+    // pulp_mbox_write(pulp, 102);
+
+    printf("Set interrupt on core %d\n", 1 + cluster_idx * 9);
+    // pulp_ipi_set(pulp, 0, 1 << (1 + cluster_idx * 9));
+
+    printf("Waiting for program to terminate..\n");
+    fflush(stdout);
+    fs->abortAfter = 60;
+    fesrv_run(fs);
+    // sleep(3);
+
+    printf("Data in allocated L3:\n");
+    hexdump((void *)shared_l3_v, 32);
+    printf("Data in L1:\n");
+    hexdump(pulp->l1.v_addr, 6 * 0x10);
+
+    // read mailbox
+    uint32_t msg;
+    // while (pulp_mbox_try_read(pulp, &msg)) {
+    //   printf("Mailbox: %d\n", msg);
+    // }
+
+    // pulp_ipi_get(pulp, 0, &mask);
+    printf("clint after completion: %08x\n", mask);
+  }
+
+exit:
+  ret = isolate_all(clusters, nr_dev, 1);
 
   printf("Exiting\n");
   return ret;

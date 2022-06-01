@@ -593,15 +593,15 @@ static uint32_t get_isolation(uint32_t quadrant) {
 static void soc_reg_write(uint32_t reg_off, uint32_t val) {
   u32 rb;
   spin_lock(&soc_lock);
-  iowrite32(val, (uint32_t *)soc_regs + reg_off);
-  rb = ioread32((uint32_t *)soc_regs + reg_off);
+  iowrite32(val, (void *)soc_regs + reg_off);
+  rb = ioread32((void *)soc_regs + reg_off);
   spin_unlock(&soc_lock);
   dbg("soc_reg_write reg %d value %08x rb: %08x\n", reg_off, val, rb);
 }
 static uint32_t soc_reg_read(uint32_t reg_off) {
   u32 val;
   spin_lock(&soc_lock);
-  val = ioread32((uint32_t *)soc_regs + reg_off);
+  val = ioread32((void *)soc_regs + reg_off);
   spin_unlock(&soc_lock);
   return val;
 }
@@ -609,19 +609,19 @@ static void cluster_periph_write(struct pulp_cluster *pc, uint32_t reg_off, uint
   iowrite32(val, (void *)(pc->pbase + reg_off));
 }
 static uint32_t cluster_periph_read (struct pulp_cluster *pc, uint32_t reg_off){
-  return ioread32((uint32_t *)pc->pbase + reg_off);
+  return ioread32((void *)pc->pbase + reg_off);
 }
 static void quadrant_ctrl_reg_write(struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val) {
-  iowrite32(val, (uint32_t *)qc->regs + reg_off);
+  iowrite32(val, (void *)qc->regs + reg_off);
 }
 static uint32_t quadrant_ctrl_reg_read(struct quadrant_ctrl *qc, uint32_t reg_off) {
-  return ioread32((uint32_t *)qc->regs + reg_off);
+  return ioread32((void *)qc->regs + reg_off);
 }
 static void set_clint(const struct pulpios_reg *sr) {
   u32 val;
   spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + sr->off);
-  iowrite32(val | sr->val, (uint32_t *)clint_regs + sr->off);
+  val = ioread32((void *)clint_regs + sr->off);
+  iowrite32(val | sr->val, (void *)clint_regs + sr->off);
   spin_unlock(&clint_lock);
   dbg("clint write reg %d value %08x\n", sr->off, val | sr->val);
 }
@@ -629,16 +629,16 @@ static void clear_clint(const struct pulpios_reg *sr) {
   u32 val;
   dbg("about to read in the clint\n");
   spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + sr->off);
+  val = ioread32((void *)clint_regs + sr->off);
   dbg("about to write in the clint\n");
-  iowrite32(val & (~sr->val), (uint32_t *)clint_regs + sr->off);
+  iowrite32(val & (~sr->val), (void *)clint_regs + sr->off);
   spin_unlock(&clint_lock);
   dbg("clint write reg %d value %08x\n", sr->off, val & (~sr->val));
 }
 static uint32_t get_clint(uint32_t reg_off) {
   u32 val;
   spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + reg_off);
+  val = ioread32((void *)clint_regs + reg_off);
   spin_unlock(&clint_lock);
   dbg("clint read reg %d val %08x\n", reg_off, val);
   return val;

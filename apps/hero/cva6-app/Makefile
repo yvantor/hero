@@ -37,7 +37,7 @@ debug:
 bringup: bringup.o ${OBJ_C} ${LIBPULP}
 	@echo LD $@
 	$(RV64_CC) $(LDFLAGS) -o $@ $< ${OBJ_C}
-	cp ${APPS} ../../../rootfs
+	cp ${APPS} run.sh ../../../rootfs
 
 clean:
 	rm -f ${OBJ_C} ${APPS} *.d *.o
