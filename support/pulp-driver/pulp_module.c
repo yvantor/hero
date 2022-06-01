@@ -606,7 +606,7 @@ static uint32_t soc_reg_read(uint32_t reg_off) {
   return val;
 }
 static void cluster_periph_write(struct pulp_cluster *pc, uint32_t reg_off, uint32_t val) {
-  iowrite32(val,(uint32_t *)pc->pbase + reg_off);
+  iowrite32(val, (void *)(pc->pbase + reg_off));
 }
 static uint32_t cluster_periph_read (struct pulp_cluster *pc, uint32_t reg_off){
   return ioread32((uint32_t *)pc->pbase + reg_off);

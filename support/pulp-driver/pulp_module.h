@@ -163,6 +163,6 @@ struct axi_tlb_entry {
  */
 #define CPER_CONTROLUNIT_FE  0x8
 #define CPER_RI5CY_BOOTADDR0 0x40
-#define CPER_INSTRSCACHE_FE  0x14000
+#define CPER_INSTRSCACHE_FE  0x1400
 
 #endif
