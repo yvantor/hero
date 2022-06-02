@@ -312,15 +312,12 @@ int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr) {
   
   pr_trace("Write boot address\n");
   for(int i = 0; i<8; i++) {
-    ret = pulp_periph_reg_write(dev, CPER_RI5CY_BOOTADDR0 +(i*0x4),(uint32_t)boot_addr);
+    ret = pulp_periph_reg_write(dev, CPER_RI5CY_BOOTADDR0 + (i*0x4), (uint32_t)boot_addr);
     if(ret)
       return ret;
   }
   
-  pr_trace("Enable cluster instruction cache\n");
-  ret = pulp_periph_reg_write(dev,CPER_INSTRSCACHE_FE,(uint32_t)0xffffffff);
-  if(ret)
-    return ret;
+  //  pulp_wakeup(dev);
 
   pr_trace("Fetch enable cores\n");
   ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
@@ -363,7 +360,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
 
   pr_trace("copy binary %s to L3\n", name);
   fread(dev->l3.v_addr, size, 1, fd);
-  pulp_flush(dev);
+  //pulp_flush(dev);
 
   // testing: read file to memory and compare with L3
   dat = (uint8_t *)malloc(size);
@@ -398,8 +395,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   free(bd);
 
   // ri5cy's fetch enable
-  pulp_wakeup(dev);
-  ret = pulp_launch_cluster(dev,bd->boot_addr);
+  ret = pulp_launch_cluster(dev,(uint32_t)dev->l3.p_addr);
 
   return ret;
 

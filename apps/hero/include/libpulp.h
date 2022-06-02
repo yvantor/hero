@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <unistd.h> // for useconds_t
 
-#include "pulp.h"
+#include "pulp_shared.h"
 
 typedef struct {
   void *v_addr;
   void *p_addr;
   unsigned size;
-} SnitchSubDev;
+} PulpSubDev;
 
 enum log_level {
   LOG_ERROR = 0,
@@ -23,12 +23,27 @@ enum log_level {
   LOG_MAX = LOG_TRACE,
 };
 
+// Must be same as in PULP Runtime
+struct BootData {
+  uint32_t boot_addr;
+  uint32_t core_count;
+  uint32_t hartid_base;
+  uint32_t tcdm_start;
+  uint32_t tcdm_size;
+  uint32_t tcdm_offset;
+  uint64_t global_mem_start;
+  uint64_t global_mem_end;
+  uint32_t cluster_count;
+  uint32_t s1_quadrant_count;
+  uint32_t clint_base;
+};
+
 typedef struct {
   int fd; // file descriptor
-  struct sn_cluster_info sci;
-  SnitchSubDev l1;
-  SnitchSubDev periph;
-  SnitchSubDev l3;
+  struct pulp_cluster_info pci;
+  PulpSubDev l1;
+  PulpSubDev periph;
+  PulpSubDev l3;
   struct O1HeapInstance *l3_heap_mgr;
   // offset in l3 memory where shared data region starts and the o1heap manager is allocating
   uint64_t l3_data_offset;
@@ -57,23 +72,23 @@ typedef struct {
   uint32_t *counters;
 } pulp_perf_t;
 
-/*  ____        _ _       _          _    ____ ___
- * / ___| _ __ (_) |_ ___| |__      / \  |  _ \_ _|
- * \___ \| '_ \| | __/ __| '_ \    / _ \ | |_) | |
- *  ___) | | | | | || (__| | | |  / ___ \|  __/| |
- * |____/|_| |_|_|\__\___|_| |_| /_/   \_\_|  |___|
+/*     _    ____ ___
+ *    / \  |  _ \_ _|
+ *   / _ \ | |_) | |
+ *  / ___ \|  __/| |
+ * /_/   \_\_|  |___|
  */
 
 /**
  * @brief Set the log level accoring to `ll`
  *
- * @param dev pointer to pulp struct
+ * @param dev pointer to PULP struct
  * @param ll log levl
  */
 void pulp_set_log_level(enum log_level ll);
 
 /**
- * @brief Discover pulp clusters by globbing /dev/pulp* and probing each device
+ * @brief Discover PULP clusters by globbing /dev/pulp* and probing each device
  * @param devs if not NULL, a list of strings to the discovered devices it put in *devs
  * @param cluster if not NULL, number of clusters written to
  * @param quadrants if not NULL, number of quadrants written to
@@ -109,16 +124,16 @@ int pulp_mmap(pulp_dev_t *dev, char *fname);
  */
 int pulp_flush(pulp_dev_t *dev);
 
-// /**
-//  * @brief Set the reset line. Reset is active high
-//  * @details
-//  *
-//  * @param dev pointer to pulp device structure
-//  * @param rst reset signal state, one of PULP_RESET_{SET,CLEAR,TOGLGE}
-//  *
-//  * @return 0 on success
-//  */
-// void pulp_reset(pulp_dev_t * dev, int rst);
+/**
+ * @brief Perform hardware reset of all components. Clusters are trapped in bootrom after this and
+ * wait for interrupt
+ * @details
+ *
+ * @param dev pointer to pulp device structure
+ *
+ * @return 0 on success
+ */
+int pulp_reset(pulp_dev_t *dev);
 
 /**
  * @brief Load pulp binary to L3
@@ -143,7 +158,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name);
 int pulp_isolate(pulp_dev_t *dev, int iso);
 
 /**
- * @brief Wake of pulp cluster. Forwarded to driver. Return can be
+ * @brief Wake up of the cluster. Forwarded to driver. Return can be
  * -ETIMEOUT if isolated response not received
  * @details
  *
@@ -152,6 +167,38 @@ int pulp_isolate(pulp_dev_t *dev, int iso);
  */
 int pulp_wakeup(pulp_dev_t *dev);
 
+/**
+ * @brief Wake up of the cluster. Forwarded to driver. Return can be
+ * -ETIMEOUT if isolated response not received
+ * @details
+ *
+ * @param dev pointer to pulp struct
+ * @param boot_addr boot addresses for CV32E40P
+ * @return 0 on success, negative ERRNO on failure
+ */
+int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr);
+
+/**
+ * @brief Write into cluster peripheral registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @param val value to write to
+ * @return int return value of the ioctl call, 0 on success, negative error on failure
+ */
+int pulp_periph_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val);
+
+/**
+ * @brief Read from cluster peripheral registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @param val value that was read
+ * @return int return value of the ioctl call, 0 on success, negative error on failure
+ */
+int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val);
+
+  
 /**
  * @brief Write to a SoC scratch register
  *
@@ -269,4 +316,14 @@ int pulp_tlb_write(pulp_dev_t *dev, struct axi_tlb_entry *e);
  */
 int pulp_tlb_read(pulp_dev_t *dev, struct axi_tlb_entry *e);
 
+/**
+ * @brief Set device log level through mailboxes.
+ *
+ * @param dev   pointer to the pulp_dev_t structure
+ * @param lvl   new log level or -1 to read it from the PULP_DEBUG environment variable
+ */
+void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl);
+
+  
+ 
 //!@}

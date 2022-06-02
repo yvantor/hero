@@ -674,7 +674,7 @@ static int write_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {
   iowrite32(   (tlbe->last  >> 12)        >> 32, pc->quadrant_ctrl->regs + reg_off + 12);
   iowrite32( ( (tlbe->base  >> 12) <<32 ) >> 32, pc->quadrant_ctrl->regs + reg_off + 16);
   iowrite32(   (tlbe->base  >> 12)        >> 32, pc->quadrant_ctrl->regs + reg_off + 20);
-  iowrite32((uint32_t)    tlbe->flags                    , pc->quadrant_ctrl->regs + reg_off + 24);
+  iowrite32(    tlbe->flags                    , pc->quadrant_ctrl->regs + reg_off + 24);
   return 0;
 }
 static int read_tlb(struct pulp_cluster *pc, struct axi_tlb_entry *tlbe) {

@@ -14,7 +14,7 @@ APPS  := bringup
 
 # C flags
 CFLAGS    += -Wall -O0 -g -rdynamic -fPIC
-CFLAGS    += -I../include/
+CFLAGS    += -I../include -I../../../support/include
 DEPDIR 		:= .deps
 DEPFLAGS 	= -MMD -MP
 CFLAGS 		+= $(INC_FLAGS) $(DEPFLAGS)

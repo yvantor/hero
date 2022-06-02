@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <unistd.h> // for useconds_t
 
-#include "pulp_module.h"
+#include "pulp_shared.h"
 
 typedef struct {
   void *v_addr;

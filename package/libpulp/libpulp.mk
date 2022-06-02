@@ -40,7 +40,7 @@ define LIBPULP_BUILD_CMDS
 endef
 
 define LIBPULP_INSTALL_STAGING_CMDS
-	$(INSTALL) -D -m 0644 $(@D)/inc/pulp.h $(STAGING_DIR)/usr/include/libpulp.h
+	$(INSTALL) -D -m 0644 $(@D)/inc/libpulp.h $(STAGING_DIR)/usr/include/libpulp.h
 	$(INSTALL) -D -m 0755 $(@D)/lib/libpulp.so $(STAGING_DIR)/usr/lib/libpulp.so
 	$(INSTALL) -D -m 0644 $(@D)/lib/libpulp.a $(STAGING_DIR)/usr/lib/libpulp.a
 endef

@@ -12,7 +12,6 @@
 #include "common.h"
 #include "fesrv.h"
 #include "libpulp.h"
-#include "pulp.h"
 #include "pulp_common.h"
 
 #define DFLT_CLUSTER_IDX 0
@@ -131,9 +130,8 @@ int main(int argc, char *argv[]) {
 
   //set_direct_tlb_map(pulp, 0, 0x10000000, 0x10400000); 
   //set_direct_tlb_map(pulp, 1, 0x02000000, 0x02000fff); // SoC Control
-  //set_direct_tlb_map(pulp, 2, 0x04000000, 0x040fffff); // CLINT
-  //set_direct_tlb_map(pulp, 3, 0x10000000, 0x105fffff); // Quadrants
-  //set_direct_tlb_map(pulp, 4, 0x80000000, 0xffffffff); // HBM0/1
+  set_direct_tlb_map(pulp, 0, 0x00000000, 0xffffffff); // whole address space
+  //set_direct_tlb_map(pulp, 1, 0x80000000, 0xffffffff); // HBM0/1
 
   for(unsigned i = 0; i < 1; ++i) {
     memset(&tlb_entry, 0, sizeof(tlb_entry));
@@ -166,9 +164,7 @@ int main(int argc, char *argv[]) {
 
   wakeup_all(clusters,nr_dev);
   printf("Choped the Suey!\n");
-  
-  exit(0);
-  
+    
   
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048
@@ -180,12 +176,11 @@ int main(int argc, char *argv[]) {
   printf("alloc l3l_v->heap: %08x\r\n", pulp->l3l->heap);
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
+
+  size = pulp_load_bin(pulp, argv[1]);
 //  snprintf(shared_l3_v, 1024, "this is linux");
 //
 //  if (argc >= 2) {
-//    size = pulp_load_bin(pulp, argv[1]);
-//    if (size < 0)
-//      goto exit;
 //
 //    printf("Data in allocated L3:\n");
 //    hexdump((void *)shared_l3_v, 32);
@@ -221,8 +216,7 @@ int main(int argc, char *argv[]) {
 //    printf("clint after completion: %08x\n", mask);
 //  }
 //
-//exit:
-//  ret = isolate_all(clusters, nr_dev, 1);
+
 
   printf("Exiting\n");
   return ret;
