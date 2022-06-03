@@ -143,7 +143,6 @@
      eth,soc-ctl = <&soc_ctl0>;
      eth,quadrant-ctrl = <&quadrant_ctrl0>;
      eth,quadrant-idx = <0>;
-     eth,clint = <&clint0>;
      eth,plic = <&PLIC0>;
      };
   };

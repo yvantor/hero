@@ -208,9 +208,8 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
     pr_error("Reading PULP cluster info failed\n");
     goto close;
   }
-  pr_info("computer-cores: %d dm-cores: %d l1: %ldKiB l3: %ldKiB clint: %08lx\n",
-          dev->pci.compute_num, dev->pci.dm_num, dev->pci.l1_size / 1024, dev->pci.l3_size / 1024,
-          dev->pci.clint_base);
+  pr_info("computer-cores: %d dm-cores: %d l1: %ldKiB l3: %ldKiB \n",
+          dev->pci.compute_num, dev->pci.dm_num, dev->pci.l1_size / 1024, dev->pci.l3_size / 1024);
 
   // mmap tcdm
   dev->l1.size = dev->pci.l1_size;
@@ -730,7 +729,6 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd) {
   bd->cluster_count = 1;
   // Let's pretend all clusters were in the same quadrant
   bd->s1_quadrant_count = 1;
-  bd->clint_base = dev->pci.clint_base;
   // unused
   bd->boot_addr = (uint32_t)(uintptr_t)dev->pci.l3_paddr;
 }

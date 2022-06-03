@@ -66,7 +66,6 @@ struct shared_mem {
  * @dev: Pointer to device structure
  * @pbase: peripherals base
  * @soc_regs: kernel-mapped soc-control registers
- * @clint_regs: kernel-mapped clint registers
  * @l1: TCDM memory
  * @l2: L2 SCP memory
  * @l3: Shared L3 memory
@@ -125,9 +124,6 @@ static void     soc_reg_write                    (uint32_t reg_off, uint32_t val
 static uint32_t soc_reg_read                     (uint32_t reg_off);
 static void     quadrant_ctrl_reg_write          (struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val);
 static uint32_t quadrant_ctrl_reg_read           (struct quadrant_ctrl *qc, uint32_t reg_off);
-static void     set_clint                        (const struct pulpios_reg *sr);
-static void     clear_clint                      (const struct pulpios_reg *sr);
-static uint32_t get_clint                        (uint32_t reg_off);
 static struct   quadrant_ctrl *get_quadrant_ctrl (u32 quadrant_idx);
 static int      write_tlb                        (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
 static int      read_tlb                         (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
@@ -160,20 +156,15 @@ static DEFINE_MUTEX(pulp_mtx);
 // ----------------------------------------------------------------------------
 
 /**
- * @clint_lock: Protects the clint and soc-reg resources
- * @soc_lock: Protects the clint and soc-reg resources
+ * @soc_lock: Protects the soc-reg resources
  */
-spinlock_t clint_lock;
 spinlock_t soc_lock;
 /**
- * clint and soc-regs are ioremapped by the first module probe
+ * soc-regs are ioremapped by the first module probe
  *
  * @soc_regs: kernel-mapped soc-control registers
- * @clint_regs: kernel-mapped clint registers
  */
 void __iomem *soc_regs;
-void __iomem *clint_regs;
-void __iomem *clint_regs_p;
 
 // ----------------------------------------------------------------------------
 //
@@ -329,24 +320,13 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     return get_isolation(quadrant);
   }
   case PULPIOS_SET_IPI: {
-    if (copy_from_user(&sreg, p, sizeof(sreg)))
-      return -EFAULT;
-    set_clint(&sreg);
-    return 0;
+    return -EFAULT;
   }
   case PULPIOS_GET_IPI: {
-    if (copy_from_user(&sreg, p, sizeof(sreg)))
-      return -EFAULT;
-    sreg.val = get_clint(sreg.off);
-    if (copy_to_user(p, &sreg, sizeof(sreg)))
-      return -EFAULT;
-    return 0;
+    return -EFAULT;
   }
   case PULPIOS_CLEAR_IPI: {
-    if (copy_from_user(&sreg, p, sizeof(sreg)))
-      return -EFAULT;
-    clear_clint(&sreg);
-    return 0;
+    return -EFAULT;
   }
   case PULPIOS_FLUSH: {
     asm volatile("fence");
@@ -617,32 +597,6 @@ static void quadrant_ctrl_reg_write(struct quadrant_ctrl *qc, uint32_t reg_off, 
 static uint32_t quadrant_ctrl_reg_read(struct quadrant_ctrl *qc, uint32_t reg_off) {
   return ioread32((uint32_t *)qc->regs + reg_off);
 }
-static void set_clint(const struct pulpios_reg *sr) {
-  u32 val;
-  spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + sr->off);
-  iowrite32(val | sr->val, (uint32_t *)clint_regs + sr->off);
-  spin_unlock(&clint_lock);
-  dbg("clint write reg %d value %08x\n", sr->off, val | sr->val);
-}
-static void clear_clint(const struct pulpios_reg *sr) {
-  u32 val;
-  dbg("about to read in the clint\n");
-  spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + sr->off);
-  dbg("about to write in the clint\n");
-  iowrite32(val & (~sr->val), (uint32_t *)clint_regs + sr->off);
-  spin_unlock(&clint_lock);
-  dbg("clint write reg %d value %08x\n", sr->off, val & (~sr->val));
-}
-static uint32_t get_clint(uint32_t reg_off) {
-  u32 val;
-  spin_lock(&clint_lock);
-  val = ioread32((uint32_t *)clint_regs + reg_off);
-  spin_unlock(&clint_lock);
-  dbg("clint read reg %d val %08x\n", reg_off, val);
-  return val;
-}
 static struct quadrant_ctrl *get_quadrant_ctrl(u32 quadrant_idx) {
   struct quadrant_ctrl *qc, *ret;
   ret = NULL;
@@ -733,7 +687,6 @@ static int pulp_probe(struct platform_device *pdev) {
   struct quadrant_ctrl *qc;
   struct device_node *np;
   struct resource socres;
-  struct resource clintres;
   struct resource quadctrlres;
   int ret;
   int err = 0;
@@ -803,26 +756,6 @@ static int pulp_probe(struct platform_device *pdev) {
   }
   dev_info(&pdev->dev, "soc_regs virt %px\n", (void *)soc_regs);
 
-  // CLINT
-  if (!clint_regs) {
-    spin_lock_init(&clint_lock);
-    np = of_parse_phandle(pdev->dev.of_node, "eth,clint", 0);
-    if (!np) {
-      dev_err(&pdev->dev, "No %s specified\n", "eth,clint");
-      err = -EINVAL;
-      goto out;
-    }
-    ret = of_address_to_resource(np, 0, &clintres);
-    clint_regs_p = (void __iomem *)clintres.start;
-    clint_regs = devm_ioremap_resource(&pdev->dev, &clintres);
-    if (IS_ERR(clint_regs)) {
-      dev_err(&pdev->dev, "could not map clint regs\n");
-      err = PTR_ERR(clint_regs);
-      goto out;
-    }
-  }
-  dev_info(&pdev->dev, "clint virt %px res.start: %px\n", (void *)clint_regs, clint_regs_p);
-
   // Quadrant control
   qc = get_quadrant_ctrl(pc->pci.quadrant_idx);
   if (!qc) {
@@ -884,7 +817,6 @@ static int pulp_probe(struct platform_device *pdev) {
   pc->pci.l3_size = pc->l3.size;
   pc->pci.l3_paddr = (void *)pc->l3.pbase;
   pc->pci.l1_paddr = (void *)pc->l1.pbase;
-  pc->pci.clint_base = (uint64_t)clint_regs_p;
 
   list_add(&pc->list, &pc_list);
 out:

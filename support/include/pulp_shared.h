@@ -33,7 +33,6 @@
  * @l1_size: Size of the TCDM address space
  * @l3_paddr: L3 physical base address
  * @l1_paddr: L1 physical base address
- * @clint_base: Physical address of clint from devicetree
  */
 struct pulp_cluster_info {
   uint32_t compute_num;
@@ -45,7 +44,6 @@ struct pulp_cluster_info {
   size_t periph_size;
   void *l3_paddr;
   void *l1_paddr;
-  uint64_t clint_base;
 };
 
 /**
@@ -102,21 +100,21 @@ struct axi_tlb_entry {
 #define PULPIOS_READ_ISOLATION _IOR(PULPIOC_MAGIC, 3, char *)
 
 /**
- * @brief Set bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset in
+ * @brief Set bits in the SW-interrupt register. Pass struct pulpios_reg with register offset in
  * `reg` and value in `val`.
  *
  */
 #define PULPIOS_SET_IPI _IOR(PULPIOC_MAGIC, 4, struct pulpios_reg)
 
 /**
- * @brief Clear bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset
- * in `reg` and value in `val` (set bits in `val` will be cleared in clint).
+ * @brief Clear bits in the SW-interrupt register. Pass struct pulpios_reg with register offset
+ * in `reg` and value in `val` (set bits in `val` will be cleared).
  *
  */
 #define PULPIOS_CLEAR_IPI _IOR(PULPIOC_MAGIC, 5, struct pulpios_reg)
 
 /**
- * @brief Get bits in the CLINT SW-interrupt register. Pass struct pulpios_reg with register offset in
+ * @brief Get bits in the SW-interrupt register. Pass struct pulpios_reg with register offset in
  * `reg` and value is written to `val`
  *
  */
