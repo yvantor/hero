@@ -3,6 +3,7 @@
 #include <linux/cdev.h>   /* cdev struct */
 #include <linux/delay.h>  // sleep
 #include <linux/device.h> // class_create, device_create
+#include <linux/interrupt.h> /* interrupt handling */
 #include <linux/kernel.h> /* Needed for KERN_INFO */
 #include <linux/mm.h>     /* vm_area_struct struct, page struct, PAGE_SHIFT, page_to_phys */
 #include <linux/module.h> /* Needed by all modules */
@@ -22,7 +23,7 @@
 // ----------------------------------------------------------------------------
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Yvan Tortorella; Luca Valente");
+MODULE_AUTHOR("Luca Valente");
 MODULE_DESCRIPTION("PULP driver");
 
 /* Match table for of_platform binding */
@@ -40,6 +41,10 @@ MODULE_DEVICE_TABLE(of, pulp_of_match);
 
 #define DEVICE_NAME "pulp"
 #define CLASS_NAME "pulp"
+
+#define read_csr(reg) ({ unsigned long __tmp; \
+  asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
+  __tmp; })
 
 // VM_RESERVERD for mmap
 #ifndef VM_RESERVED
@@ -87,6 +92,8 @@ struct pulp_cluster {
   struct pulp_cluster_info pci;
   struct list_head list;
   int minor;
+  int irq_mbox;
+  int irq_eoc;
   const struct file_operations *fops;
   const char *nodename;
   umode_t mode;
@@ -127,6 +134,8 @@ static uint32_t quadrant_ctrl_reg_read           (struct quadrant_ctrl *qc, uint
 static struct   quadrant_ctrl *get_quadrant_ctrl (u32 quadrant_idx);
 static int      write_tlb                        (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
 static int      read_tlb                         (struct pulp_cluster *pc, struct axi_tlb_entry *tlbe);
+static irqreturn_t pulp_isr                      (int irq, void *ptr);
+
 // ----------------------------------------------------------------------------
 //
 //   Static data
@@ -148,6 +157,16 @@ static LIST_HEAD(quadrant_ctrl_list);
  *
  */
 static DEFINE_MUTEX(pulp_mtx);
+/**
+ * @brief To check the job's completion
+ *
+ */
+static DECLARE_COMPLETION(ctrl_finished);
+/**
+ * @brief Cycle # when the cluster ends
+ *
+ */
+static uint64_t host_cycles;
 
 // ----------------------------------------------------------------------------
 //
@@ -250,6 +269,30 @@ static ssize_t pulp_write(struct file *file, const char *buff, size_t len, loff_
   return -EINVAL;
 }
 
+irqreturn_t pulp_isr(int irq, void *dev)
+{
+
+  struct pulp_cluster *pc;
+
+  pc = dev;
+  
+  dbg("PULP: Handling IRQ %0d.\n", irq);
+
+  if(irq == pc->irq_mbox) {
+    printk(KERN_WARNING "PULP: mailbox functions not yet implemented, an interrupt arrived though\n");    
+  }
+  else if (irq == pc->irq_eoc) {
+    host_cycles=read_csr(cycle);
+    complete(&ctrl_finished);
+  }
+  else {
+    printk(KERN_WARNING "PULP: Cannot handle interrupt %d, cannot be mapped to to identifier\n", irq);
+    return IRQ_NONE;
+  }
+
+  return IRQ_HANDLED;
+}
+
 static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   void __user *argp = (void __user *)arg;
   int __user *p = argp;
@@ -281,7 +324,12 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         return 0;
       }
       case(PULPIOS_WAKEUP):     {
+        reinit_completion(&ctrl_finished);
         retval = wakeup(pc);
+        return 0;
+      }
+      case(PULPIOS_WAIT): {
+        wait_for_completion_interruptible_timeout(&ctrl_finished,1000000);
         return 0;
       }
       default:
@@ -539,6 +587,7 @@ static int wakeup(struct pulp_cluster *pc) {
   unsigned quadrant_id = pc->pci.quadrant_idx;
   u32 timeout = 1000; // [x10 us]
   uint32_t iso;
+  int ret;
   
   soc_reg_write(0,0x3); 
   soc_reg_write(0,0x7);
@@ -552,6 +601,31 @@ static int wakeup(struct pulp_cluster *pc) {
     set_reset(pc, 1);
     return -ETIMEDOUT;
   }
+
+  if (pc->irq_mbox != -1) {
+    ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
+    if (ret) {
+      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+      return ret;
+    }
+  }
+  else {
+    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+    return -1;
+  }
+
+  if (pc->irq_eoc != -1) {
+    ret=request_irq(pc->irq_eoc, pulp_isr, 0, "PULP", pc);
+    if (ret) {
+      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+      return ret;
+    }
+  }
+  else {
+    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+    return -1;
+  }
+
   return 0;
 }
 
@@ -714,6 +788,24 @@ static int pulp_probe(struct platform_device *pdev) {
   // Get resource and remap to kernel space
   // the pulp node should have two reg properties, one for TCDM the other for peripherals
 
+  ret = platform_get_irq(pdev, 0);
+  if (ret <= 0) {
+    printk(KERN_DEBUG "PULP: Could not allocate IRQ resource mbox\n");
+    pc->irq_mbox = -1;
+    return -ENODEV;
+  }
+  pc->irq_mbox = ret;
+  printk(KERN_DEBUG "PULP irq_mbox: %d\n", ret);
+
+  ret = platform_get_irq(pdev, 1);
+  if (ret <= 0) {
+    printk(KERN_DEBUG "PULP: Could not allocate IRQ resource mbox\n");
+    pc->irq_eoc = -1;
+    return -ENODEV;
+  }
+  pc->irq_eoc = ret;
+  printk(KERN_DEBUG "PULP irq_eoc: %d\n", ret);
+
   // TCDM is mapped as memory
   res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
   pc->l1.pbase = res->start;
@@ -809,7 +901,7 @@ static int pulp_probe(struct platform_device *pdev) {
     err = -ENOMEM;
     goto out;
   }
-  dev_info(&pdev->dev, "Remapped shred L3 phys %px virt %px\n", (void *)pc->l3.pbase,
+  dev_info(&pdev->dev, "Remapped shared L3 phys %px virt %px\n", (void *)pc->l3.pbase,
            (void *)pc->l3.vbase);
 
   pc->pci.periph_size = pc->l3.size;
@@ -819,6 +911,9 @@ static int pulp_probe(struct platform_device *pdev) {
   pc->pci.l1_paddr = (void *)pc->l1.pbase;
 
   list_add(&pc->list, &pc_list);
+
+  printk(KERN_DEBUG "PULP: probed!\n");
+  
 out:
   // mutex_unlock(&pulp_mtx);
   return err;
@@ -935,6 +1030,9 @@ void pulp_exit(void) {
 
   // mutex_unlock(&pulp_mtx);
 
+  free_irq(pc->irq_mbox,NULL);
+  free_irq(pc->irq_eoc,NULL);
+  
   info("unload complete\n");
 }
 

@@ -153,6 +153,7 @@ struct axi_tlb_entry {
 #define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
 #define PULPIOS_ISOLATE   0x0002   /* Isolate the cluster    */
 #define PULPIOS_WAKEUP    0x0003   /* Wake up the cluster    */
+#define PULPIOS_WAIT      0x0004   /* Wait eoc               */
 
 
 /**
