@@ -178,6 +178,10 @@ int main(int argc, char *argv[]) {
     return -1;
 
   size = pulp_load_bin(pulp, argv[1]);
+  uint64_t meas_cycles   = pulp_mbox_wait(pulp,1);
+
+  printf("Cycle count %lu\n", meas_cycles);
+  
 //  snprintf(shared_l3_v, 1024, "this is linux");
 //
 //  if (argc >= 2) {

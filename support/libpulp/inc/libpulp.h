@@ -323,6 +323,13 @@ int pulp_tlb_read(pulp_dev_t *dev, struct axi_tlb_entry *e);
  */
 void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl);
 
-  
- 
+/**
+ * @brief Wait for message from mbox
+ *
+ * @param  dev   pointer to the pulp_dev_t structure
+ * @param  timeout_s timeout in seconds
+ * @return mcycle counter value when the event is processed by the handler
+ */
+uint64_t pulp_mbox_wait(pulp_dev_t *dev, int timeout_s);
+
 //!@}

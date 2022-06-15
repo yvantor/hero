@@ -706,6 +706,19 @@ void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl) {
   pulp_mbox_write(dev, g_pulp_debuglevel);
 }
 
+uint64_t pulp_mbox_wait(pulp_dev_t *dev, int timeout_s) {
+
+  int ret;
+  struct pulpiot_val values;
+  values.timeout = timeout_s * 1000;
+
+  if ((ret = ioctl(dev->fd, PULPIOT_WAIT_MBOX, &values))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+  }
+  
+  return values.counter;
+}
+
 // ----------------------------------------------------------------------------
 //
 //   Static

@@ -163,10 +163,16 @@ static DEFINE_MUTEX(pulp_mtx);
  */
 static DECLARE_COMPLETION(ctrl_finished);
 /**
+ * @brief To check the mbox status
+ *
+ */
+static DECLARE_COMPLETION(mbox_finished);
+/**
  * @brief Cycle # when the cluster ends
  *
  */
-static uint64_t host_cycles;
+static uint64_t host_cycles_end;
+static uint64_t host_cycles_start;
 
 // ----------------------------------------------------------------------------
 //
@@ -275,14 +281,16 @@ irqreturn_t pulp_isr(int irq, void *dev)
   struct pulp_cluster *pc;
 
   pc = dev;
-  
+
   dbg("PULP: Handling IRQ %0d.\n", irq);
 
   if(irq == pc->irq_mbox) {
-    printk(KERN_WARNING "PULP: mailbox functions not yet implemented, an interrupt arrived though\n");    
+    host_cycles_end=read_csr(cycle);
+    complete(&mbox_finished);
+    printk(KERN_WARNING "PULP: cycles %lld\n", host_cycles_end);    
   }
   else if (irq == pc->irq_eoc) {
-    host_cycles=read_csr(cycle);
+    host_cycles_end=read_csr(cycle);
     complete(&ctrl_finished);
   }
   else {
@@ -297,6 +305,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   void __user *argp = (void __user *)arg;
   int __user *p = argp;
   struct pulpios_reg sreg;
+  struct pulpiot_val values;
   struct axi_tlb_entry tlbe;
   struct pulp_cluster *pc;
   pc = file->private_data;
@@ -325,11 +334,8 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       }
       case(PULPIOS_WAKEUP):     {
         reinit_completion(&ctrl_finished);
+        reinit_completion(&mbox_finished);
         retval = wakeup(pc);
-        return 0;
-      }
-      case(PULPIOS_WAIT): {
-        wait_for_completion_interruptible_timeout(&ctrl_finished,1000000);
         return 0;
       }
       default:
@@ -407,6 +413,24 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     dbg("c periph read @ reg %d \n", sreg.off);
     sreg.val = cluster_periph_read(pc,sreg.off);
     if (copy_to_user(p, &sreg, sizeof(sreg)))
+      return -EFAULT;
+    return 0;
+  }
+  case(PULPIOT_WAIT_MBOX): {
+   if (copy_from_user(&values, p, sizeof(values)))
+     return -EFAULT;
+    wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
+    values.counter = host_cycles_end-host_cycles_start;
+    if (copy_to_user(p, &values, sizeof(values)))
+      return -EFAULT;
+    return 0;
+  }
+  case(PULPIOT_WAIT_EOC): {
+   if (copy_from_user(&values, p, sizeof(values)))
+     return -EFAULT;
+    wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
+    values.counter = host_cycles_end-host_cycles_start;
+    if (copy_to_user(p, &values, sizeof(values)))
       return -EFAULT;
     return 0;
   }
@@ -602,6 +626,8 @@ static int wakeup(struct pulp_cluster *pc) {
     return -ETIMEDOUT;
   }
 
+  host_cycles_start = read_csr(cycle);
+  printk(KERN_WARNING "PULP: cycle %lld.\n", host_cycles_start);
   if (pc->irq_mbox != -1) {
     ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
     if (ret) {

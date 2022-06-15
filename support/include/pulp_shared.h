@@ -64,6 +64,11 @@ struct pulpios_reg {
   uint32_t val;
 };
 
+struct pulpiot_val {
+  int      timeout;
+  uint64_t counter;
+};
+
 enum AxiTlbFlags { AXI_TLB_VALID = 0x07, AXI_TLB_RO = 0x02 };
 enum AxiTlbLoc { AXI_TLB_NARROW = 1, AXI_TLB_WIDE = 2 };
 struct axi_tlb_entry {
@@ -149,11 +154,22 @@ struct axi_tlb_entry {
  */
 #define PULPIOC_PERIPH_R _IOW(PULPIOC_MAGIC, 11, struct pulpios_reg)
 
+/**
+ * @brief read from cluster periph region
+ *
+ */
+#define PULPIOT_WAIT_MBOX _IOWR(PULPIOC_MAGIC, 12, struct pulpiot_val)
+
+/**
+ * @brief read from cluster periph region
+ *
+ */
+#define PULPIOT_WAIT_EOC _IOWR(PULPIOC_MAGIC, 13, struct pulpiot_val)
+
 // Values for PULPIOC_SET_OPTIONS
 #define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
 #define PULPIOS_ISOLATE   0x0002   /* Isolate the cluster    */
 #define PULPIOS_WAKEUP    0x0003   /* Wake up the cluster    */
-#define PULPIOS_WAIT      0x0004   /* Wait eoc               */
 
 
 /**
