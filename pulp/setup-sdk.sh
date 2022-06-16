@@ -16,8 +16,13 @@ if [ ! -f "${THIS_DIR}/sdk/configs/${1}.sh" ]; then
     exit 1
 fi
 export PULP_RISCV_GCC_TOOLCHAIN=$HERO_INSTALL
+
+# Enabling SDK traces print
+export CONFIG_TRACE_ENABLED=1
+
 cd ${THIS_DIR}/sdk
 pulp_chip=${1}
+echo "CHIP IS CURRENTLY $pulp_chip!!!"
 source configs/${1}.sh
 source configs/platform-hsa.sh
 

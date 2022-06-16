@@ -3,10 +3,11 @@ OUTPUT_ARCH(riscv)
 ENTRY( _start )
 MEMORY
 {
-  L2                 : ORIGIN = 0x1c000000, LENGTH = 0x00020000
-  L1                 : ORIGIN = 0x10000004, LENGTH = 0x0001fffc
-  L1_aliased         : ORIGIN = 0x1b000004, LENGTH = 0x0001fffc
-  L3                 : ORIGIN = 0x80000000, LENGTH = 0x08000000
+  L2                 : ORIGIN = 0x1c000000, LENGTH = 0x00080000
+  L1                 : ORIGIN = 0x10000000, LENGTH = 0x00040000
+  /* L1                 : ORIGIN = 0x10000004, LENGTH = 0x0001fffc */
+  L1_aliased         : ORIGIN = 0x1b000000, LENGTH = 0x00040000
+  L3                 : ORIGIN = 0x80020000, LENGTH = 0x00FE0000
 }
 
 /*
@@ -40,7 +41,7 @@ __rt_sim = DEFINED(__rt_sim) ? __rt_sim : 0x0;
 
 __pulp_l1_base        = ORIGIN(L1);
 __pulp_l1_end         = __pulp_l1_base + LENGTH(L1);
-__pulp_l1_alias_base  = ORIGIN(L1_aliased);
+__pulp_l1_alias_base  = ORIGIN(L1_aliased);                       
 __pulp_l1_alias_end   = __pulp_l1_alias_base + LENGTH(L1_aliased);
 __pulp_l2_base        = ORIGIN(L2);
 __pulp_l2_end         = __pulp_l2_base + LENGTH(L2);
@@ -152,6 +153,16 @@ SECTIONS
 
   _l1_preload_start_inL2 = ALIGN(4);
 
+   .data_tiny_l1 :         
+   {                       
+     . = ALIGN(4);         
+     _l1_preload_start = .;
+     *(.data_tiny_l1)      
+     *(.data_tiny_l1.*)    
+     *(.data_alias_l1)     
+     *(.data_alias_l1.*)   
+   } > L1_aliased          
+
   .data_tiny_l1 :
   {
     . = ALIGN(4);
@@ -160,7 +171,7 @@ SECTIONS
     *(.data_tiny_l1.*)
     *(.data_alias_l1)
     *(.data_alias_l1.*)
-  } > L1_aliased
+  } > L1
 
   .l1cluster_g (ORIGIN(L1) + SIZEOF(.data_tiny_l1)): {
     . = ALIGN(4);
@@ -230,7 +241,7 @@ SECTIONS
     LONG(0)
     __CTOR_END__ = .;
     PROVIDE_HIDDEN (__init_array_end = .);
-  } > L1
+  } > L2
 
 
   .fini_array : {
@@ -314,12 +325,12 @@ SECTIONS
   __l1_heap_start = ALIGN(4);
   __l1_heap_size = LENGTH(L1) - __l1_heap_start + ORIGIN(L1);
 
-  __stdout_buf_size = 1024*1024; /* 1 MiB */
-  .stdout_buf : {
-    . = ALIGN(8);
-    __stdout_buf_start = .;
-    . = . + __stdout_buf_size;
-    __stdout_buf_end = .;
-  } > L3
-  __l3_heap_start = ALIGN(8);
+  __stdout_buf_size = 1024;   /* 1 MiB */
+  .stdout_buf : {                    
+    . = ALIGN(8);                    
+    __stdout_buf_start = .;          
+    . = . + __stdout_buf_size;       
+    __stdout_buf_end = .;            
+  } > L3                           
+  __l3_heap_start = ALIGN(8);       
 }

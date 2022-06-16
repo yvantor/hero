@@ -35,6 +35,7 @@ RT_BOOT_CODE static void do_ctors(void)
   fptr *fpp;
 
   for(fpp = ctor_list+1;  *fpp != 0;  ++fpp) {
+    printf("fpp -> %x\n", (unsigned int) *fpp);
     (**fpp)();
   }
   //plp_trace(RT_TRACE_INIT, "Constructors execution done\n");

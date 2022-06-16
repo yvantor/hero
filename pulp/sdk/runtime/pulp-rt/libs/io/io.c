@@ -31,6 +31,8 @@ extern int _prf(int (*func)(), void *dest,
 #define __RT_USE_UART 1
 #endif
 
+#define __RT_USE_UART 1
+
 extern char __rt_sim;
 int get_rt_sim() {
   return (int)&__rt_sim == 1;
