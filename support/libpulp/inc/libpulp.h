@@ -330,6 +330,21 @@ void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl);
  * @param  timeout_s timeout in seconds
  * @return mcycle counter value when the event is processed by the handler
  */
-uint64_t pulp_mbox_wait(pulp_dev_t *dev, int timeout_s);
+int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s);
+
+/**
+ * @brief Wait for message from mbox
+ *
+ * @param  dev   pointer to the pulp_dev_t structure
+ * @param  timeout_s timeout in seconds
+ * @return mcycle counter value when the event is processed by the handler
+ */
+int pulp_exe_wait(pulp_dev_t *dev, int timeout_s);
+
+/**
+ * @brief Get the clk cnt difference between pulp_exe_start and when the interrupt arrives
+ *
+ */
+uint64_t pulp_get_exe_time();
 
 //!@}

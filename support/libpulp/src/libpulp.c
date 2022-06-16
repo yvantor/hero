@@ -30,6 +30,9 @@
 //   Macros
 //
 // ----------------------------------------------------------------------------
+#define read_csr(reg) ({ unsigned long __tmp;    \
+  asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
+  __tmp; })
 
 #define ALIGN_UP(x, p) (((x) + (p)-1) & ~((p)-1))
 
@@ -54,6 +57,7 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd);
 //   Static Data
 //
 // ----------------------------------------------------------------------------
+static uint64_t host_cnt;
 
 // Need to share L3 resources accross clusters. They are mapped by the first mmap
 // and then copied to to individual pulp devices (this is ugly but ok for now)
@@ -306,8 +310,11 @@ int pulp_reset(pulp_dev_t *dev) {
   return 0;
 }
 
-int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr) {
+int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr) {
   uint32_t ret;
+
+  ioctl(dev->fd, PULPIOT_START_T);
+  asm volatile("": : :"memory");
   
   pr_trace("Write boot address\n");
   for(int i = 0; i<8; i++) {
@@ -316,8 +323,6 @@ int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr) {
       return ret;
   }
   
-  //  pulp_wakeup(dev);
-
   pr_trace("Fetch enable cores\n");
   ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
   if(ret)
@@ -394,7 +399,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   free(bd);
 
   // ri5cy's fetch enable
-  ret = pulp_launch_cluster(dev,(uint32_t)dev->l3.p_addr);
+  ret = pulp_exe_start(dev,(uint32_t)dev->l3.p_addr);
 
   return ret;
 
@@ -429,6 +434,7 @@ int pulp_wakeup(pulp_dev_t *dev) {
   } else {
     pr_debug("Wakeup success on quadrant %d\n", dev->pci.quadrant_idx);
   }
+
   return ret;
 }
 
@@ -609,23 +615,22 @@ int pulp_exec_done(pulp_dev_t *dev, uint64_t *mask) {
   // return ret;
 }
 
-int pulp_exe_wait(pulp_dev_t *dev, uint32_t mask, int timeout_s) {
-  pr_error("unimplemented\n");
-  return -1;
-  // int start = time(NULL);
-  // uint64_t imask = 0;
-  // unsigned long calls = dev->fesrv.nCalls;
-  // do {
-  //   (void)pulp_exec_done(dev, &imask);
-  //   if (__builtin_popcount(imask & mask) == __builtin_popcount(mask))
-  //     return 0;
-  //   if (calls < dev->fesrv.nCalls) {
-  //     // reset timeout
-  //     calls = dev->fesrv.nCalls;
-  //     start = time(NULL);
-  //   }
-  // } while (time(NULL) < (start + timeout_s));
-  // return -1;
+int pulp_exe_wait(pulp_dev_t *dev, int timeout_s) {
+  int ret;
+  struct pulpiot_val values;
+  values.timeout = timeout_s * 1000;
+  ret = ioctl(dev->fd, PULPIOT_WAIT_MBOX, &values);
+
+  if (ret<0) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+  }
+  else if (ret==0) {
+    pr_warn("pulp_exe_wait timed out\n");
+  }
+
+  host_cnt = values.counter;
+  
+  return ret;
 }
 
 void pulp_dbg_stack(pulp_dev_t *dev, uint32_t stack_size, char fill) {
@@ -706,17 +711,27 @@ void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl) {
   pulp_mbox_write(dev, g_pulp_debuglevel);
 }
 
-uint64_t pulp_mbox_wait(pulp_dev_t *dev, int timeout_s) {
+int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s) {
 
   int ret;
   struct pulpiot_val values;
   values.timeout = timeout_s * 1000;
+  ret = ioctl(dev->fd, PULPIOT_WAIT_MBOX, &values);
 
-  if ((ret = ioctl(dev->fd, PULPIOT_WAIT_MBOX, &values))) {
+  if (ret<0) {
     pr_error("ioctl() failed. %s \n", strerror(errno));
   }
+  else if (ret==0) {
+    pr_warn("pulp_mbox_wait timed out\n");
+  }
+
+  host_cnt = values.counter;
   
-  return values.counter;
+  return ret;
+}
+
+uint64_t pulp_get_exe_time() {
+  return host_cnt;
 }
 
 // ----------------------------------------------------------------------------

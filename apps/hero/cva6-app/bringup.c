@@ -104,14 +104,13 @@ int main(int argc, char *argv[]) {
   }
 
   // No app specified discover and exit
-  pulp_set_log_level(LOG_INFO);
+  pulp_set_log_level(LOG_WARN);
   // if (argc < 2) {
   //   pulp_discover(NULL, NULL, NULL);
   //   exit(0);
   // }
 
   // Map clusters to user-space and pick one for tests
-  pulp_set_log_level(LOG_MAX);
   clusters = pulp_mmap_all(&nr_dev);
   // Restrict to local cluster and remote on qc
   nr_dev = 1 ;
@@ -177,10 +176,11 @@ int main(int argc, char *argv[]) {
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
 
+  // Loads the bin and executes pulp_exe_start()
   size = pulp_load_bin(pulp, argv[1]);
-  uint64_t meas_cycles   = pulp_mbox_wait(pulp,1);
+  ret  = pulp_mbox_wait(pulp,1);
 
-  printf("Cycle count %lu\n", meas_cycles);
+  printf("Cycle count %lu\n", pulp_get_exe_time());
   
 //  snprintf(shared_l3_v, 1024, "this is linux");
 //
@@ -223,5 +223,6 @@ int main(int argc, char *argv[]) {
 
 
   printf("Exiting\n");
+
   return ret;
 }

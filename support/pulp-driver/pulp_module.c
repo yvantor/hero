@@ -171,8 +171,8 @@ static DECLARE_COMPLETION(mbox_finished);
  * @brief Cycle # when the cluster ends
  *
  */
-static uint64_t host_cycles_end;
 static uint64_t host_cycles_start;
+static uint64_t host_cycles_end;
 
 // ----------------------------------------------------------------------------
 //
@@ -287,11 +287,12 @@ irqreturn_t pulp_isr(int irq, void *dev)
   if(irq == pc->irq_mbox) {
     host_cycles_end=read_csr(cycle);
     complete(&mbox_finished);
-    printk(KERN_WARNING "PULP: cycles %lld\n", host_cycles_end);    
+    printk(KERN_DEBUG "PULP: mbox @ cycle %lld\n", host_cycles_end);    
   }
   else if (irq == pc->irq_eoc) {
     host_cycles_end=read_csr(cycle);
     complete(&ctrl_finished);
+    printk(KERN_DEBUG "PULP: eot @ cycle %lld\n", host_cycles_end);    
   }
   else {
     printk(KERN_WARNING "PULP: Cannot handle interrupt %d, cannot be mapped to to identifier\n", irq);
@@ -308,6 +309,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   struct pulpiot_val values;
   struct axi_tlb_entry tlbe;
   struct pulp_cluster *pc;
+  int timed_out;
   pc = file->private_data;
 
   // check correct magic
@@ -417,21 +419,28 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     return 0;
   }
   case(PULPIOT_WAIT_MBOX): {
-   if (copy_from_user(&values, p, sizeof(values)))
-     return -EFAULT;
-    wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
-    values.counter = host_cycles_end-host_cycles_start;
+    if (copy_from_user(&values, p, sizeof(values)))
+      return -EFAULT;
+    timed_out = wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
+    values.counter = host_cycles_end - host_cycles_start;
     if (copy_to_user(p, &values, sizeof(values)))
       return -EFAULT;
-    return 0;
+    return timed_out;
   }
   case(PULPIOT_WAIT_EOC): {
-   if (copy_from_user(&values, p, sizeof(values)))
-     return -EFAULT;
-    wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
-    values.counter = host_cycles_end-host_cycles_start;
+    if (copy_from_user(&values, p, sizeof(values)))
+      return -EFAULT;
+    timed_out = wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
+    printk(KERN_DEBUG "PULP: counter @ cycle %lld\n",  host_cycles_end - host_cycles_start);    
+    values.counter = host_cycles_end - host_cycles_start;
     if (copy_to_user(p, &values, sizeof(values)))
       return -EFAULT;
+    return timed_out;
+  }
+  case(PULPIOT_START_T): {
+    host_cycles_end = 0;
+    host_cycles_start=read_csr(cycle);
+    printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
     return 0;
   }
   default:
@@ -626,8 +635,6 @@ static int wakeup(struct pulp_cluster *pc) {
     return -ETIMEDOUT;
   }
 
-  host_cycles_start = read_csr(cycle);
-  printk(KERN_WARNING "PULP: cycle %lld.\n", host_cycles_start);
   if (pc->irq_mbox != -1) {
     ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
     if (ret) {

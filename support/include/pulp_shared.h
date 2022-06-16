@@ -166,6 +166,12 @@ struct axi_tlb_entry {
  */
 #define PULPIOT_WAIT_EOC _IOWR(PULPIOC_MAGIC, 13, struct pulpiot_val)
 
+/**
+ * @brief start counter in kernel space
+ *
+ */
+#define PULPIOT_START_T _IO(PULPIOC_MAGIC, 14)
+
 // Values for PULPIOC_SET_OPTIONS
 #define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
 #define PULPIOS_ISOLATE   0x0002   /* Isolate the cluster    */
