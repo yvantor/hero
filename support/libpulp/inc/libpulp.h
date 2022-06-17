@@ -333,6 +333,22 @@ void pulp_set_device_loglevel(pulp_dev_t *dev, int lvl);
 int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s);
 
 /**
+ * @brief Sample MCYCLE counter inside the kernel
+ *
+ * @param  dev   pointer to the pulp_dev_t structure
+ */
+int pulp_t_start(pulp_dev_t *dev);
+
+/**
+ * @brief Write boot addr and enable RI5CYs' execution
+ *
+ * @param  dev   pointer to the pulp_dev_t structure
+ * @param  boot_addr to set for RI5CYs
+ * @return 0 periph_reg_writes have been successfull
+ */
+int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr);
+
+/**
  * @brief Wait for message from mbox
  *
  * @param  dev   pointer to the pulp_dev_t structure
@@ -342,7 +358,7 @@ int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s);
 int pulp_exe_wait(pulp_dev_t *dev, int timeout_s);
 
 /**
- * @brief Get the clk cnt difference between pulp_exe_start and when the interrupt arrives
+ * @brief Get the clk cnt difference between pulp_t_start and when an interrupt arrives
  *
  */
 uint64_t pulp_get_exe_time();

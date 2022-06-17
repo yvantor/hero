@@ -310,11 +310,19 @@ int pulp_reset(pulp_dev_t *dev) {
   return 0;
 }
 
+int pulp_t_start(pulp_dev_t *dev) {
+
+  int ret;
+  ret = ioctl(dev->fd, PULPIOT_START_T);
+  asm volatile("": : :"memory");
+
+  return ret;
+}
+
 int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr) {
   uint32_t ret;
 
-  ioctl(dev->fd, PULPIOT_START_T);
-  asm volatile("": : :"memory");
+  pulp_t_start(dev);
   
   pr_trace("Write boot address\n");
   for(int i = 0; i<8; i++) {
@@ -400,7 +408,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
 
   // ri5cy's fetch enable
   ret = pulp_exe_start(dev,(uint32_t)dev->l3.p_addr);
-
+  
   return ret;
 
 abort:
