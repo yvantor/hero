@@ -218,35 +218,6 @@ int pulp_scratch_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val);
  */
 int pulp_scratch_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val);
 
-/**
- * @brief Set bits in the SW interrupt registers
- *
- * @param dev pointer to pulp struct
- * @param reg register offset
- * @param mask mask of bits to set
- * @return int return value of the ioctl call, 0 on success, negative error on failure
- */
-int pulp_ipi_set(pulp_dev_t *dev, uint32_t reg, uint32_t mask);
-
-/**
- * @brief Clear bits in the SW interrupt registers
- *
- * @param dev pointer to pulp struct
- * @param reg register offset
- * @param mask mask of bits to clear
- * @return int return value of the ioctl call, 0 on success, negative error on failure
- */
-int pulp_ipi_clear(pulp_dev_t *dev, uint32_t reg, uint32_t mask);
-
-/**
- * @brief Read bits from SW interrupt registers
- *
- * @param dev pointer to pulp struct
- * @param reg register offset
- * @param mask register value is written to *mask
- * @return int return value of the ioctl call, 0 on success, negative error on failure
- */
-int pulp_ipi_get(pulp_dev_t *dev, uint32_t reg, uint32_t *mask);
 
 /** Allocate a chunk of memory in contiguous L3.
 

@@ -119,11 +119,6 @@ int main(int argc, char *argv[]) {
   // Use L3 layout struct from the cluster provided as argument and set it's pointer in scratch[2]
   // pulp_scratch_reg_write(pulp, 2, (uint32_t)(uintptr_t)pulp->l3l_p);
 
-  // clear all interrupts
-//  pulp_ipi_clear(pulp, 0, ~0U);
-//  pulp_ipi_get(pulp, 0, &mask);
-//  printf("clint after clear: %08x\n", mask);
-
   // Add TLB entry for required ranges
   reset_tlbs(pulp);
 
@@ -196,8 +191,6 @@ int main(int argc, char *argv[]) {
 //    pulp_mbox_write(pulp, 101);
 //    pulp_mbox_write(pulp, 102);
 //
-//    printf("Set interrupt on core %d\n", 1 + cluster_idx * 9);
-//    pulp_ipi_set(pulp, 0, 1 << (1 + cluster_idx * 9));
 //
 //    printf("Waiting for program to terminate..\n");
 //    fflush(stdout);
@@ -216,8 +209,6 @@ int main(int argc, char *argv[]) {
 //      printf("Mailbox: %d\n", msg);
 //    }
 //
-//    pulp_ipi_get(pulp, 0, &mask);
-//    printf("clint after completion: %08x\n", mask);
 //  }
 //
 

@@ -488,28 +488,6 @@ int pulp_scratch_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val) {
   return ret;
 }
 
-int pulp_ipi_set(pulp_dev_t *dev, uint32_t reg, uint32_t mask) {
-  int ret;
-  struct pulpios_reg sreg;
-  sreg.off = reg;
-  sreg.val = mask;
-  if ((ret = ioctl(dev->fd, PULPIOS_SET_IPI, &sreg))) {
-    pr_error("ioctl() failed. %s \n", strerror(errno));
-  }
-  return ret;
-}
-
-int pulp_ipi_clear(pulp_dev_t *dev, uint32_t reg, uint32_t mask) {
-  int ret;
-  struct pulpios_reg sreg;
-  sreg.off = reg;
-  sreg.val = mask;
-  if ((ret = ioctl(dev->fd, PULPIOS_CLEAR_IPI, &sreg))) {
-    pr_error("ioctl() failed. %s \n", strerror(errno));
-  }
-  return ret;
-}
-
 int pulp_tlb_write(pulp_dev_t *dev, struct axi_tlb_entry *e) {
   int ret;
 
@@ -528,17 +506,6 @@ int pulp_tlb_read(pulp_dev_t *dev, struct axi_tlb_entry *e) {
   if ((ret = ioctl(dev->fd, PULPIOS_READ_TLB_ENTRY, e))) {
     pr_error("ioctl() failed. %s \n", strerror(errno));
   }
-  return ret;
-}
-
-int pulp_ipi_get(pulp_dev_t *dev, uint32_t reg, uint32_t *mask) {
-  int ret;
-  struct pulpios_reg sreg;
-  sreg.off = reg;
-  if ((ret = ioctl(dev->fd, PULPIOS_GET_IPI, &sreg))) {
-    pr_error("ioctl() failed. %s \n", strerror(errno));
-  }
-  *mask = sreg.val;
   return ret;
 }
 
