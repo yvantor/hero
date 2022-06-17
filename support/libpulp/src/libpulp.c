@@ -6,6 +6,7 @@
  */
 #include "libpulp.h"
 #include "herodev.h"
+#include "pulp_mbox.h"
 
 #include "debug.h"
 #include "fesrv.h"
@@ -188,7 +189,7 @@ fail:
 int pulp_mmap(pulp_dev_t *dev, char *fname) {
   // int offset;
   ssize_t size;
-  void *addr, *addr2;
+  //  void *addr, *addr2;
 
   // This is probably the first call into this library, set the debug level from ENV here
   const char *s = getenv("LIBPULP_DEBUG");
@@ -262,25 +263,6 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
   // Pointer to this struct passed to PULP through scratch 2 register
   dev->l3l = pulp_l3_malloc(dev, sizeof(struct l3_layout), &dev->l3l_p);
   assert(dev->l3l);
-
-  // Mailboxes a2h and h2a of 16*uint32_t each
-  dev->a2h_mbox = (struct ring_buf *)pulp_l3_malloc(dev, sizeof(struct ring_buf), &addr);
-  assert(dev->a2h_mbox);
-  dev->l3l->a2h_mbox = (uint32_t)(uintptr_t)addr;
-  dev->a2h_mbox->data_v = (uint64_t)pulp_l3_malloc(dev, sizeof(uint32_t) * 16, &addr2);
-  assert(dev->a2h_mbox->data_v);
-  dev->a2h_mbox->data_p = (uint64_t)addr2;
-  rb_init(dev->a2h_mbox, 16, sizeof(uint32_t));
-  pr_debug("a2h mailbox at phys %08x data %08lx\n", dev->l3l->a2h_mbox, dev->a2h_mbox->data_p);
-  // Mailboxes a2h and h2a of 16*uint32_t each
-  dev->h2a_mbox = (struct ring_buf *)pulp_l3_malloc(dev, sizeof(struct ring_buf), &addr);
-  assert(dev->h2a_mbox);
-  dev->l3l->h2a_mbox = (uint32_t)(uintptr_t)addr;
-  dev->h2a_mbox->data_v = (uint64_t)pulp_l3_malloc(dev, sizeof(uint32_t) * 16, &addr2);
-  assert(dev->h2a_mbox->data_v);
-  dev->h2a_mbox->data_p = (uint64_t)addr2;
-  rb_init(dev->h2a_mbox, 16, sizeof(uint32_t));
-  pr_debug("h2a mailbox at phys %08x data %08lx\n", dev->l3l->h2a_mbox, dev->h2a_mbox->data_p);
 
   return 0;
 
@@ -457,14 +439,15 @@ int pulp_periph_reg_write (pulp_dev_t *dev, uint32_t reg, uint32_t val) {
   return ret;
 }
        
-int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val) {
+int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg) {
   int ret;
   struct pulpios_reg sreg;
   sreg.off = reg;
   if ((ret = ioctl(dev->fd, PULPIOC_PERIPH_R, &sreg))) {
     pr_error("ioctl() failed. %s \n", strerror(errno));
+    return ret;
   }
-  return ret;
+  return sreg.val;
 }
 
 int pulp_scratch_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val) {
@@ -594,7 +577,7 @@ int pulp_exe_wait(pulp_dev_t *dev, int timeout_s) {
   int ret;
   struct pulpiot_val values;
   values.timeout = timeout_s * 1000;
-  ret = ioctl(dev->fd, PULPIOT_WAIT_MBOX, &values);
+  ret = ioctl(dev->fd, PULPIOT_WAIT_EOC, &values);
 
   if (ret<0) {
     pr_error("ioctl() failed. %s \n", strerror(errno));
@@ -610,63 +593,85 @@ int pulp_exe_wait(pulp_dev_t *dev, int timeout_s) {
 
 void pulp_dbg_stack(pulp_dev_t *dev, uint32_t stack_size, char fill) {
   pr_error("unimplemented\n");
-  // uint32_t stack_base;
-  // char *p = (char *)dev->l1.v_addr;
-  // char mem;
-  // int stack_idx;
-
-  // printf("Stack size per core: %d bytes\n", stack_size);
-
-  // for (int hart_id = 0; hart_id < PULP_TOT_NR_CORES; hart_id++) {
-  //   // calculate stack pointer base address
-  //   stack_base = hart_id * stack_size;
-  //   // start at stack end and stop if pattern is not found anymore
-  //   for (stack_idx = stack_size - 1; stack_idx != 0; stack_idx--) {
-  //     // read memory
-  //     mem = p[dev->l1.size - stack_base - stack_idx];
-  //     if (mem != fill) {
-  //       // this location was used, report and abort
-  //       // printf("mismatch at %#x\n", dev->l1.size - stack_base - stack_idx);
-  //       break;
-  //     }
-  //   }
-  //   printf("Core %2d stack usage: %6d bytes (%.0f%%)\n", hart_id, stack_idx,
-  //          100.0 / stack_size * stack_idx);
-  // }
 }
 
-int pulp_mbox_read(const pulp_dev_t *dev, uint32_t *buffer, size_t n_words) {
-  int ret, retry = 0;
-  while (n_words--) {
-    do {
-      ret = rb_host_get(dev->a2h_mbox, &buffer[n_words]);
-      if (ret) {
-        if (++retry == 100) {
-          pr_warn("high retry on mbox read()\n");
-        }
-        usleep(10000);
-      }
-    } while (ret);
+int pulp_mbox_set_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr) {
+  int ret = 0;
+  switch(dir) {
+    case H2C_DIR: {
+      ret = pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
+      return ret;
+    }
+    case C2H_DIR: {
+      ret = pulp_periph_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
+      return ret;
+    }
+    default: {
+      ret = -1;
+      return ret;
+    }
   }
+ return ret;
+}
+
+int pulp_mbox_clear_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr) {
+  int ret = 0 ;
+  switch(dir) {
+    case H2C_DIR: {
+      ret = pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
+      return ret;
+    }
+    case C2H_DIR: {
+      ret = pulp_periph_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
+      return ret;
+    }
+    default: {
+      ret = -1;
+      return ret;
+    }
+  }
+  return ret;
+}
+  
+int pulp_mbox_read(pulp_dev_t *dev, uint32_t *buffer, size_t n_words) {
+  int retry = 0;
+  for (int i=0;i<n_words;i++) {
+    
+    while(pulp_mbox_try_read(dev)==0) {
+      retry++;
+      if (++retry == 100) {
+        pr_warn("high retry on mbox read()\n");
+        retry = 0;
+      }
+    }
+    buffer[i]=pulp_periph_reg_read(dev,MBOX_C2H_BASE_ADDR+MBOX_RDDATA_OFFSET);
+    i++;
+  }
+  
   return 0;
 }
 
-int pulp_mbox_try_read(const pulp_dev_t *dev, uint32_t *buffer) {
-  return rb_host_get(dev->a2h_mbox, buffer) == 0 ? 1 : 0;
+int pulp_mbox_try_read(pulp_dev_t *dev) {
+  return ( pulp_periph_reg_read(dev,MBOX_C2H_BASE_ADDR+MBOX_STATUS_OFFSET) && MBOX_RFIFO_MASK_EMPTY ) ;
+}
+
+int pulp_mbox_try_write(pulp_dev_t *dev) {
+  return ( pulp_periph_reg_read(dev,MBOX_H2C_BASE_ADDR+MBOX_STATUS_OFFSET) && MBOX_WFIFO_MASK_FULL ) ;
 }
 
 int pulp_mbox_write(pulp_dev_t *dev, uint32_t word) {
   pr_trace("mbox write %08x\n", word);
-  int ret, retry = 0;
-  do {
-    ret = rb_host_put(dev->h2a_mbox, &word);
-    if (ret) {
-      if (++retry == 100) {
-        pr_warn("high retry on mbox write()\n");
-      }
-      usleep(10000);
+  int ret = 0;
+  int retry = 0;
+  while(pulp_mbox_try_read(dev)!=0) {
+    retry++;
+    if (++retry == 100) {
+      pr_warn("high retry on mbox write()\n");
+      retry = 0;
     }
-  } while (ret);
+    usleep(10000);
+  }
+  pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_WRDATA_OFFSET,word);
   return ret;
 }
 

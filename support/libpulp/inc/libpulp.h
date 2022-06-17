@@ -192,10 +192,9 @@ int pulp_periph_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val);
  *
  * @param dev pointer to pulp struct
  * @param reg register offset in words
- * @param val value that was read
- * @return int return value of the ioctl call, 0 on success, negative error on failure
+ * @return val value that was read
  */
-int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg, uint32_t *val);
+int pulp_periph_reg_read(pulp_dev_t *dev, uint32_t reg);
 
   
 /**
@@ -238,6 +237,26 @@ void *pulp_l3_malloc(pulp_dev_t *dev, size_t size, void **p_addr);
  */
 void pulp_l3_free(pulp_dev_t *dev, void *v_addr, void *p_addr);
 
+/** Enable mbox irq generation
+
+  \param    dev   pointer to the pulp_dev_t structure
+  \param    direction, either H2C or C2H
+  \param    error, write or read?
+
+  \return   0 on success; negative value with an errno on errors.
+ */
+int pulp_mbox_set_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr);
+
+/** Clear pending irw from mbox
+
+  \param    dev   pointer to the pulp_dev_t structure
+  \param    direction, either H2C or C2H
+  \param    error, write or read?
+
+  \return   0 on success; negative value with an errno on errors.
+ */
+int pulp_mbox_clear_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr);
+
 /** Read one or multiple words from the mailbox. Blocks if the mailbox does not contain enough
  *  data.
 
@@ -247,7 +266,7 @@ void pulp_l3_free(pulp_dev_t *dev, void *v_addr, void *p_addr);
 
   \return   0 on success; negative value with an errno on errors.
  */
-int pulp_mbox_read(const pulp_dev_t *dev, uint32_t *buffer, size_t n_words);
+int pulp_mbox_read(pulp_dev_t *dev, uint32_t *buffer, size_t n_words);
 
 /**
  * @brief Try to read from the mailbox. On success, message is written to buffer and 1 is returned.
@@ -257,7 +276,7 @@ int pulp_mbox_read(const pulp_dev_t *dev, uint32_t *buffer, size_t n_words);
  * @param buffer pointer to the buffer where the message word is stores
  * @return int 0 if no message was received, 1 if message was received and written to buffer
  */
-int pulp_mbox_try_read(const pulp_dev_t *dev, uint32_t *buffer);
+int pulp_mbox_try_read(pulp_dev_t *dev);
 
 /** Write one word to the mailbox. Blocks if the mailbox is full.
 
@@ -267,6 +286,16 @@ int pulp_mbox_try_read(const pulp_dev_t *dev, uint32_t *buffer);
  \return    0 on success; negative value with an errno on errors.
  */
 int pulp_mbox_write(pulp_dev_t *dev, uint32_t word);
+
+/**
+ * @brief Try to read from the mailbox. On success, message is written to buffer and 1 is returned.
+ * If no element is present, 0 is returned
+ *
+ * @param dev pointer to the pulp_dev_t structure
+ * @param buffer pointer to the buffer where the message word is stores
+ * @return int 0 if no message was received, 1 if message was received and written to buffer
+ */
+int pulp_mbox_try_write(pulp_dev_t *dev);
 
 /**
  * @brief Write to a TLB entry
