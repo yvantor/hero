@@ -428,6 +428,28 @@ int pulp_wakeup(pulp_dev_t *dev) {
   return ret;
 }
 
+int pulp_quadrant_reg_write (pulp_dev_t *dev, uint32_t reg, uint32_t val) {
+  int ret;
+  struct pulpios_reg sreg;
+  sreg.off = reg;
+  sreg.val = val;
+  if ((ret = ioctl(dev->fd, PULPIOC_QUADRANT_W, &sreg))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+  }
+  return ret;
+}
+
+int pulp_quadrant_reg_read(pulp_dev_t *dev, uint32_t reg) {
+  int ret;
+  struct pulpios_reg sreg;
+  sreg.off = reg;
+  if ((ret = ioctl(dev->fd, PULPIOC_QUADRANT_R, &sreg))) {
+    pr_error("ioctl() failed. %s \n", strerror(errno));
+    return ret;
+  }
+  return sreg.val;
+}
+
 int pulp_periph_reg_write (pulp_dev_t *dev, uint32_t reg, uint32_t val) {
   int ret;
   struct pulpios_reg sreg;
@@ -599,11 +621,11 @@ int pulp_mbox_set_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr) {
   int ret = 0;
   switch(dir) {
     case H2C_DIR: {
-      ret = pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
+      ret = pulp_quadrant_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
       return ret;
     }
     case C2H_DIR: {
-      ret = pulp_periph_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
+      ret = pulp_quadrant_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQEN_OFFSET,1<<ewr);
       return ret;
     }
     default: {
@@ -618,11 +640,11 @@ int pulp_mbox_clear_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr) {
   int ret = 0 ;
   switch(dir) {
     case H2C_DIR: {
-      ret = pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
+      ret = pulp_quadrant_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
       return ret;
     }
     case C2H_DIR: {
-      ret = pulp_periph_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
+      ret = pulp_quadrant_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_IRQS_OFFSET,1<<ewr);
       return ret;
     }
     default: {
@@ -637,14 +659,14 @@ int pulp_mbox_read(pulp_dev_t *dev, uint32_t *buffer, size_t n_words) {
   int retry = 0;
   for (int i=0;i<n_words;i++) {
     
-    while(pulp_mbox_try_read(dev)==0) {
+    while(pulp_mbox_try_read(dev)!=0) {
       retry++;
       if (++retry == 100) {
         pr_warn("high retry on mbox read()\n");
         retry = 0;
       }
     }
-    buffer[i]=pulp_periph_reg_read(dev,MBOX_C2H_BASE_ADDR+MBOX_RDDATA_OFFSET);
+    buffer[i]=pulp_quadrant_reg_read(dev,MBOX_H2C_BASE_ADDR+MBOX_RDDATA_OFFSET);
     i++;
   }
   
@@ -652,18 +674,21 @@ int pulp_mbox_read(pulp_dev_t *dev, uint32_t *buffer, size_t n_words) {
 }
 
 int pulp_mbox_try_read(pulp_dev_t *dev) {
-  return ( pulp_periph_reg_read(dev,MBOX_C2H_BASE_ADDR+MBOX_STATUS_OFFSET) && MBOX_RFIFO_MASK_EMPTY ) ;
+  return ( pulp_quadrant_reg_read(dev,MBOX_H2C_BASE_ADDR+MBOX_STATUS_OFFSET) & MBOX_RFIFO_MASK_EMPTY ) ;
 }
 
 int pulp_mbox_try_write(pulp_dev_t *dev) {
-  return ( pulp_periph_reg_read(dev,MBOX_H2C_BASE_ADDR+MBOX_STATUS_OFFSET) && MBOX_WFIFO_MASK_FULL ) ;
+  int ret;
+  ret = pulp_quadrant_reg_read(dev,MBOX_H2C_BASE_ADDR+MBOX_STATUS_OFFSET) & MBOX_WFIFO_MASK_FULL  ;
+  pr_trace("%x %x\n",ret,MBOX_WFIFO_MASK_FULL);
+  return ret;
 }
 
 int pulp_mbox_write(pulp_dev_t *dev, uint32_t word) {
   pr_trace("mbox write %08x\n", word);
   int ret = 0;
   int retry = 0;
-  while(pulp_mbox_try_read(dev)!=0) {
+  while(pulp_mbox_try_write(dev)!=0) {
     retry++;
     if (++retry == 100) {
       pr_warn("high retry on mbox write()\n");
@@ -671,7 +696,7 @@ int pulp_mbox_write(pulp_dev_t *dev, uint32_t word) {
     }
     usleep(10000);
   }
-  pulp_periph_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_WRDATA_OFFSET,word);
+  pulp_quadrant_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_WRDATA_OFFSET,word);
   return ret;
 }
 

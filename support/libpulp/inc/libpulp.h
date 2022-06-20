@@ -178,6 +178,25 @@ int pulp_wakeup(pulp_dev_t *dev);
 int pulp_launch_cluster(pulp_dev_t *dev, uint32_t boot_addr);
 
 /**
+ * @brief Write into cluster quadrant registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @param val value to write to
+ * @return int return value of the ioctl call, 0 on success, negative error on failure
+ */
+int pulp_quadrant_reg_write(pulp_dev_t *dev, uint32_t reg, uint32_t val);
+
+/**
+ * @brief Read from cluster quadrant registers
+ *
+ * @param dev pointer to pulp struct
+ * @param reg register offset in words
+ * @return val value that was read
+ */
+int pulp_quadrant_reg_read(pulp_dev_t *dev, uint32_t reg);
+
+/**
  * @brief Write into cluster peripheral registers
  *
  * @param dev pointer to pulp struct
