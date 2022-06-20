@@ -26,7 +26,7 @@ DEFMK_ROOT := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 # 4) with _COMMON suffix, they apply to both PULP and host compilation.
 CFLAGS_COMMON += $(cflags) -fopenmp=libomp -O$(opt) -static
 CFLAGS_PULP += $(CFLAGS_COMMON) -target $(TARGET_DEV) -I$(HERO_PULP_INC_DIR)
-CFLAGS += -target $(TARGET_HOST) $(CFLAGS_COMMON) -fopenmp-targets=$(TARGET_DEV)
+CFLAGS += -target $(TARGET_HOST) --sysroot=$(HERO_INSTALL)/riscv64-hero-linux-gnu/sysroot/ $(CFLAGS_COMMON) -fopenmp-targets=$(TARGET_DEV)
 LDFLAGS_COMMON ?= $(ldflags) -static
 ifdef HERCULES_INSTALL
 	LDFLAGS_COMMON += -lpremnotify
@@ -35,7 +35,7 @@ LDFLAGS_PULP += $(LDFLAGS_COMMON)
 LDFLAGS += $(LDFLAGS_COMMON) -lhero-target
 ifeq ($(TARGET_HOST),riscv64-hero-linux-gnu)
   # FIXME: we explicitly need to embed the correct linker for riscv
-  LDFLAGS += -Wl,-dynamic-linker,/lib/ld-linux-riscv64-lp64.so.1
+  LDFLAGS += -Wl,-dynamic-linker,/lib/ld-linux-riscv64-lp64d.so.1,
 endif
 
 INCPATHS += -I$(DEFMK_ROOT) -include hero_64.h
