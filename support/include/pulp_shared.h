@@ -172,6 +172,18 @@ struct axi_tlb_entry {
  */
 #define PULPIOT_START_T _IO(PULPIOC_MAGIC, 14)
 
+/**
+ * @brief write in cluster periph region
+ *
+ */
+#define PULPIOC_QUADRANT_W _IOW(PULPIOC_MAGIC, 15, struct pulpios_reg)
+
+/**
+ * @brief read from cluster periph region
+ *
+ */
+#define PULPIOC_QUADRANT_R _IOW(PULPIOC_MAGIC, 16, struct pulpios_reg)
+
 // Values for PULPIOC_SET_OPTIONS
 #define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
 #define PULPIOS_ISOLATE   0x0002   /* Isolate the cluster    */
