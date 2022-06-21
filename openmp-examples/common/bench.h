@@ -96,29 +96,7 @@ static inline double bench_stop(void)
 
 static int get_host_clk_freq_mhz()
 {
-  const char sysfs_path[] = "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq";
-  int ret = access(sysfs_path, F_OK);
-  if (ret != 0) {
-    printf("ERROR: Could not access '%s'!\n", sysfs_path);
-    return ret;
-  }
-
-  FILE* const fp = fopen(sysfs_path, "r");
-  if (fp == NULL) {
-    printf("ERROR: Could not open '%s'!\n", sysfs_path);
-    return -EACCES;
-  }
-
-  char host_clk_freq_khz_str[20];
-  if (fgets(host_clk_freq_khz_str, 20, fp) == NULL) {
-    printf("ERROR: Could not read '%s'!\n", sysfs_path);
-    return -EIO;
-  }
-  const unsigned host_clk_freq_mhz = (strtoul(host_clk_freq_khz_str, NULL, 10) + 1) / 1000;
-
-  fclose(fp);
-
-  return host_clk_freq_mhz;
+  return 50;
 }
 
 #endif

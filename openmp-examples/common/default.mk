@@ -1,8 +1,8 @@
 ############################ OpenMP Sources ############################
-CC := clang
-LINK := llvm-link
-COB := clang-offload-bundler
-DIS := llvm-dis
+CC := $(HERO_INSTALL)/bin/clang
+LINK := $(HERO_INSTALL)/bin/llvm-link
+COB := $(HERO_INSTALL)/bin/clang-offload-bundler
+DIS := $(HERO_INSTALL)/bin/llvm-dis
 
 TARGET_HOST = ${HERO_TOOLCHAIN_HOST_TARGET}
 TARGET_DEV = riscv32-hero-unknown-elf
