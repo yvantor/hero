@@ -492,6 +492,11 @@ int pulp_mmap(struct file *file, struct vm_area_struct *vma) {
     mapoffset = pc->l1.pbase;
     psize = pc->l1.size;
     break;
+  case 2:
+    strncpy(type, "l2", sizeof(type));
+    mapoffset = pc->l2.pbase;
+    psize = pc->l2.size;
+    break;
   default:
     return -EINVAL;
   }
@@ -879,6 +884,19 @@ static int pulp_probe(struct platform_device *pdev) {
   pc->pci.periph_size = resource_size(res);
   dev_info(&pdev->dev, "peripherals virt %px\n", pc->pbase);
 
+  // SPM is mapped as memory
+  res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+  pc->l2.pbase = res->start;
+  pc->l2.size = resource_size(res);
+  pc->l2.vbase = memremap(res->start, resource_size(res), MEMREMAP_WT);
+  if (!pc->l2.vbase) {
+    dev_err(&pdev->dev, "memremap of L2SPM failed\n");
+    err = -ENOMEM;
+    goto out;
+  }
+  dev_info(&pdev->dev, "Remapped L2SPM phys %px virt %px size %x\n", (void *)pc->l2.pbase,
+           (void *)pc->l2.vbase, (unsigned int)pc->l2.size);
+
   // SoC control
   if (!soc_regs) {
     spin_lock_init(&soc_lock);
@@ -957,8 +975,10 @@ static int pulp_probe(struct platform_device *pdev) {
   pc->pci.periph_size = pc->l3.size;
   pc->pci.l1_size = pc->l1.size;
   pc->pci.l3_size = pc->l3.size;
+  pc->pci.l2_size = pc->l2.size;
   pc->pci.l3_paddr = (void *)pc->l3.pbase;
   pc->pci.l1_paddr = (void *)pc->l1.pbase;
+  pc->pci.l2_paddr = (void *)pc->l2.pbase;
 
   list_add(&pc->list, &pc_list);
 

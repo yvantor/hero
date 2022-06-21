@@ -40,9 +40,11 @@ struct pulp_cluster_info {
   uint32_t cluster_idx;
   uint32_t quadrant_idx;
   size_t l3_size;
+  size_t l2_size;
   size_t l1_size;
   size_t periph_size;
   void *l3_paddr;
+  void *l2_paddr;
   void *l1_paddr;
 };
 
