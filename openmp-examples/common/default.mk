@@ -1,5 +1,5 @@
 ############################ OpenMP Sources ############################
-CC := clang
+CC := clang-12
 LINK := llvm-link
 COB := clang-offload-bundler
 DIS := llvm-dis
