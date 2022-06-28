@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-CMAKE=cmake
+CMAKE = cmake-3.18.1
+if [ ! -z "$UBUNTU" ]; then
+CMAKE = cmake
+fi
 
 ### SETUP A HERO LLVM RTE ###
 THIS_DIR=$(dirname "$(readlink -f "$0")")
@@ -68,6 +71,7 @@ $CMAKE -G Ninja -DCMAKE_BUILD_TYPE="Release" \
       -DLLVM_ENABLE_PROJECTS="clang;openmp;lld" \
       -DLIBOMPTARGET_NVPTX_BUILD=OFF \
       -DLIBOMPTARGET_PULP_BUILD=OFF \
+      -DLIBOMPTARGET_ENABLE_DEBUG=ON \
       -DCMAKE_C_COMPILER=$CC \
       -DCMAKE_CXX_COMPILER=$CXX \
       -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
