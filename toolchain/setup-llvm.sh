@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-CMAKE=cmake
+CMAKE = cmake-3.18.1
+if [ ! -z "$UBUNTU" ]; then
+CMAKE = cmake
+fi
 
 ### SETUP A HERO LLVM RTE ###
 THIS_DIR=$(dirname "$(readlink -f "$0")")
