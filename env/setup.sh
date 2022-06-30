@@ -24,9 +24,9 @@ export HERO_TOOLCHAIN_HOST_LINUX_ARCH="${ARCH}"
 export KERNEL_ARCH="${ARCH}"
 export KERNEL_CROSS_COMPILE=${CROSS_COMPILE}
 
-export KERNEL_DIR="${THIS_DIR}/../output/br-hrv/build/linux-5.16.9"
+export KERNEL_DIR="${THIS_DIR}/../output/br-hrv-alsaqr/build/linux-5.16.9"
 
-export HERCULES_ARCH=ALSAQR
+export HERCULES_ARCH=URANIA
 
 export PULP_RISCV_GCC_TOOLCHAIN=${HERO_INSTALL}
 
