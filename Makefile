@@ -66,10 +66,10 @@ br-hrv: check_environment
 	cp $(CURDIR)/output/br-hrv/images/rootfs.tar $(CURDIR)/output/hrv-rootfs.tar
 
 br-hrv-alsaqr: check_environment
-	mkdir -p $(CURDIR)/output/br-hrv
-	$(MAKE) O=$(CURDIR)/output/br-hrv BR2_EXTERNAL=$(ROOT) -C $(ROOT)/buildroot hrv_defconfig
+	mkdir -p $(CURDIR)/output/br-hrv-alsaqr
+	$(MAKE) O=$(CURDIR)/output/br-hrv-alsaqr BR2_EXTERNAL=$(ROOT) -C $(ROOT)/buildroot hrv_alsaqr_defconfig
 	chmod -R u+w $(ROOT)/install
-	$(MAKE) -C $(CURDIR)/output/br-hrv
+	$(MAKE) -C $(CURDIR)/output/br-hrv-alsaqr
 	chmod -R u-w $(ROOT)/install
 
 br-har: check_environment
