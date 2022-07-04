@@ -43,6 +43,7 @@ MODULE_DEVICE_TABLE(of, pulp_of_match);
 #define CLASS_NAME "pulp"
 
 #define read_csr(reg) ({ unsigned long __tmp; \
+  asm volatile ("": : :"memory"); \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
   asm volatile ("": : :"memory"); \
   __tmp; })

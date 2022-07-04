@@ -43,6 +43,7 @@ typedef struct {
   PulpSubDev l1;
   PulpSubDev periph;
   PulpSubDev l3;
+  PulpSubDev l2;
   struct O1HeapInstance *l3_heap_mgr;
   // offset in l3 memory where shared data region starts and the o1heap manager is allocating
   uint64_t l3_data_offset;
@@ -377,9 +378,9 @@ int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr);
 int pulp_exe_wait(pulp_dev_t *dev, int timeout_s);
 
 /**
- * @brief Get the clk cnt difference between pulp_t_start and when an interrupt arrives
+ * @brief Get the clk cnt difference between pulp_t_start and when the eoc arrives
  *
  */
-uint64_t pulp_get_exe_time();
+long unsigned int pulp_get_exe_time();
 
 //!@}

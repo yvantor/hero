@@ -58,7 +58,6 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd);
 //   Static Data
 //
 // ----------------------------------------------------------------------------
-static uint64_t host_cnt;
 
 // Need to share L3 resources accross clusters. They are mapped by the first mmap
 // and then copied to to individual pulp devices (this is ugly but ok for now)
@@ -121,9 +120,9 @@ int pulp_discover(char ***devs, uint32_t *clusters, uint32_t *quadrants) {
       pr_error("Reading PULP cluster info failed\n");
       goto skip;
     }
-    pr_info(" quadrant: %d cluster: %d computer-cores: %d dm-cores: %d l1: %ldKiB l3: %ldKiB\n",
-            pci.quadrant_idx, pci.cluster_idx, pci.compute_num, pci.dm_num, pci.l1_size / 1024,
-            pci.l3_size / 1024);
+    pr_info(" quadrant: %d cluster: %d computer-cores: %d dm-cores: %d l1: %ldKiB l2 : %ldKiB l3: %ldKiB\n",
+            pci.quadrant_idx, pci.cluster_idx, pci.compute_num, pci.dm_num, pci.l1_size / 1024, 
+            pci.l2_size / 1024, pci.l3_size / 1024);
 
     if (devs)
       (*devs)[ret] = strdup(*fname);
@@ -226,6 +225,17 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
     // return -EIO;
   }
   pr_debug("TCDM mapped to virtual user space at %p.\n", dev->l1.v_addr);
+
+  // mmap tcdm
+  dev->l2.size = dev->pci.l2_size;
+  dev->l2.p_addr = dev->pci.l2_paddr;
+  dev->l2.v_addr =
+      mmap(NULL, dev->l2.size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L2);
+  if (dev->l2.v_addr == MAP_FAILED) {
+    pr_error("mmap() failed for L2. %s\n", strerror(errno));
+    // return -EIO;
+  }
+  pr_debug("L2SPM mapped to virtual user space at %p.\n", dev->l2.v_addr);
 
   // mmap reserved DDR space
   if (!g_l3) {
@@ -342,27 +352,26 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
     return errno;
   }
 
-  // get file size and check if it fits L3
+  // get file size and check if it fits L2
   fseek(fd, 0L, SEEK_END);
   size = ftell(fd);
   fseek(fd, 0L, SEEK_SET);
-  if (size > dev->l3.size) {
-    pr_error("binary exceeds L3 size: %ld > %d\n", size, dev->l3.size);
+  if (size > dev->l2.size) {
+    pr_error("binary exceeds L2 size: %ld > %d\n", size, dev->l2.size);
     ret = -EFBIG;
     goto abort;
   }
 
-  pr_trace("copy binary %s to L3\n", name);
-  fread(dev->l3.v_addr, size, 1, fd);
-  //pulp_flush(dev);
+  pr_trace("copy binary %s to L2\n", name);
+  fread(dev->l2.v_addr, size, 1, fd);
 
-  // testing: read file to memory and compare with L3
+  // testing: read file to memory and compare with L2
   dat = (uint8_t *)malloc(size);
   fseek(fd, 0L, SEEK_SET);
   fread(dat, size, 1, fd);
   for (unsigned i = 0; errs < 8 && i < size; ++i)
-    errs = ((uint8_t *)dev->l3.v_addr)[i] != dat[i] ? errs + 1 : errs;
-  pr_trace("Verify accelerator binary in L3: %s %d errors (of %ld bytes)\n",
+    errs = ((uint8_t *)dev->l2.v_addr)[i] != dat[i] ? errs + 1 : errs;
+  pr_trace("Verify accelerator binary in L2: %s %d errors (of %ld bytes)\n",
            errs != 0 ? SHELL_RED "FAIL" SHELL_RST : SHELL_GRN "PASS" SHELL_RST, errs, size);
   free(dat);
   if (errs) {
@@ -385,11 +394,11 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   }
   populate_boot_data(dev, bd);
 
-  memcpy((uint8_t *)dev->l3.v_addr + boot_data_off, bd, sizeof(*bd));
+  memcpy((uint8_t *)dev->l2.v_addr + boot_data_off, bd, sizeof(*bd));
   free(bd);
 
   // ri5cy's fetch enable
-  ret = pulp_exe_start(dev,(uint32_t)dev->l3.p_addr);
+  ret = pulp_exe_start(dev,(uint32_t)dev->l2.p_addr);
   
   return ret;
 
@@ -607,8 +616,6 @@ int pulp_exe_wait(pulp_dev_t *dev, int timeout_s) {
   else if (ret==0) {
     pr_warn("pulp_exe_wait timed out\n");
   }
-
-  host_cnt = values.counter;
   
   return ret;
 }
@@ -729,14 +736,18 @@ int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s) {
   else if (ret==0) {
     pr_warn("pulp_mbox_wait timed out\n");
   }
-
-  host_cnt = values.counter;
   
   return ret;
 }
 
-uint64_t pulp_get_exe_time() {
-  return host_cnt;
+long unsigned int pulp_get_exe_time(pulp_dev_t *dev) {
+  struct pulpiot_val values;
+  int ret;
+  ret = ioctl(dev->fd, PULPIOT_GET_T, &values);
+  if(ret)
+    return ret;
+
+  return values.counter;
 }
 
 // ----------------------------------------------------------------------------

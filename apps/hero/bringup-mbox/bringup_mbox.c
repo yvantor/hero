@@ -175,7 +175,13 @@ int main(int argc, char *argv[]) {
 
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);
   
-  printf("Cycle count %lu\n", pulp_get_exe_time());
+  printf("Cycle count %lu\n", pulp_get_exe_time(pulp));
+  
+  ret = pulp_mbox_read(pulp,&buffer,1);
+
+  printf("Received from CL : %x\n",buffer);
+
+  pulp_mbox_clear_irq(pulp,C2H_DIR,0);
   
   printf("Exiting\n");
 
