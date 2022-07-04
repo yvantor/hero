@@ -439,25 +439,25 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
     timed_out = wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
-    values.counter = host_cycles_end - host_cycles_start;
-    if (copy_to_user(p, &values, sizeof(values)))
-      return -EFAULT;
     return timed_out;
   }
   case(PULPIOT_WAIT_EOC): {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
     timed_out = wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
-    printk(KERN_DEBUG "PULP: counter @ cycle %lld\n",  host_cycles_end - host_cycles_start);    
-    values.counter = host_cycles_end - host_cycles_start;
-    if (copy_to_user(p, &values, sizeof(values)))
-      return -EFAULT;
     return timed_out;
   }
   case(PULPIOT_START_T): {
     host_cycles_end = 0;
     host_cycles_start=read_csr(cycle);
     printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
+    return 0;
+  }
+  case(PULPIOT_GET_T): {
+    values.counter = host_cycles_end - host_cycles_start;
+    printk(KERN_DEBUG "PULP: counter @ cycle %lld - % lld = %lld\n", host_cycles_end , host_cycles_start, values.counter);    
+    if (copy_to_user(p, &values, sizeof(values)))
+      return -EFAULT;
     return 0;
   }
   default:
@@ -642,7 +642,6 @@ static int wakeup(struct pulp_cluster *pc) {
   unsigned quadrant_id = pc->pci.quadrant_idx;
   u32 timeout = 1000; // [x10 us]
   uint32_t iso;
-  int ret;
   
   soc_reg_write(0,0x3); 
   soc_reg_write(0,0x7);
@@ -655,30 +654,6 @@ static int wakeup(struct pulp_cluster *pc) {
   if (iso != 0x7) {
     set_reset(pc, 1);
     return -ETIMEDOUT;
-  }
-
-  if (pc->irq_mbox != -1) {
-    ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
-    if (ret) {
-      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
-      return ret;
-    }
-  }
-  else {
-    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
-    return -1;
-  }
-
-  if (pc->irq_eoc != -1) {
-    ret=request_irq(pc->irq_eoc, pulp_isr, 0, "PULP", pc);
-    if (ret) {
-      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
-      return ret;
-    }
-  }
-  else {
-    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
-    return -1;
   }
 
   return 0;
@@ -971,6 +946,31 @@ static int pulp_probe(struct platform_device *pdev) {
   }
   dev_info(&pdev->dev, "Remapped shared L3 phys %px virt %px\n", (void *)pc->l3.pbase,
            (void *)pc->l3.vbase);
+
+  
+  if (pc->irq_mbox != -1) {
+    ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
+    if (ret) {
+      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+      return ret;
+    }
+  }
+  else {
+    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+    return -1;
+  }
+
+  if (pc->irq_eoc != -1) {
+    ret=request_irq(pc->irq_eoc, pulp_isr, 0, "PULP", pc);
+    if (ret) {
+      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+      return ret;
+    }
+  }
+  else {
+    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+    return -1;
+  }
 
   pc->pci.periph_size = pc->l3.size;
   pc->pci.l1_size = pc->l1.size;

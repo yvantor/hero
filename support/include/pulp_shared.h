@@ -54,6 +54,7 @@ struct pulp_cluster_info {
  */
 #define PULP_MMAP_L3 (0 * sysconf(_SC_PAGE_SIZE))
 #define PULP_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L2 (2 * sysconf(_SC_PAGE_SIZE))
 
 /**
  * IOCTL
@@ -175,16 +176,22 @@ struct axi_tlb_entry {
 #define PULPIOT_START_T _IO(PULPIOC_MAGIC, 14)
 
 /**
+ * @brief start counter in kernel space
+ *
+ */
+#define PULPIOT_GET_T _IOW(PULPIOC_MAGIC, 15, struct pulpiot_val)
+
+/**
  * @brief write in cluster periph region
  *
  */
-#define PULPIOC_QUADRANT_W _IOW(PULPIOC_MAGIC, 15, struct pulpios_reg)
+#define PULPIOC_QUADRANT_W _IOW(PULPIOC_MAGIC, 16, struct pulpios_reg)
 
 /**
  * @brief read from cluster periph region
  *
  */
-#define PULPIOC_QUADRANT_R _IOW(PULPIOC_MAGIC, 16, struct pulpios_reg)
+#define PULPIOC_QUADRANT_R _IOW(PULPIOC_MAGIC, 17, struct pulpios_reg)
 
 // Values for PULPIOC_SET_OPTIONS
 #define PULPIOS_DEISOLATE 0x0001   /* De-Isolate the cluster */
