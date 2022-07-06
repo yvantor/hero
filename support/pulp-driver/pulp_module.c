@@ -287,12 +287,10 @@ irqreturn_t pulp_isr(int irq, void *dev)
   dbg("PULP: Handling IRQ %0d.\n", irq);
 
   if(irq == pc->irq_mbox) {
-    host_cycles_end=read_csr(cycle);
     complete(&mbox_finished);
     printk(KERN_DEBUG "PULP: mbox @ cycle %lld\n", host_cycles_end);    
   }
   else if (irq == pc->irq_eoc) {
-    host_cycles_end=read_csr(cycle);
     complete(&ctrl_finished);
     printk(KERN_DEBUG "PULP: eot @ cycle %lld\n", host_cycles_end);    
   }
@@ -440,12 +438,14 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
     timed_out = wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
+    host_cycles_end=read_csr(cycle);
     return timed_out;
   }
   case(PULPIOT_WAIT_EOC): {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
     timed_out = wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
+    host_cycles_end=read_csr(cycle);
     return timed_out;
   }
   case(PULPIOT_START_T): {
