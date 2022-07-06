@@ -318,6 +318,16 @@ int pulp_mbox_write(pulp_dev_t *dev, uint32_t word);
 int pulp_mbox_try_write(pulp_dev_t *dev);
 
 /**
+ * @brief Flush mbox fifo
+ *
+ * @param dev pointer to the pulp_dev_t structure
+ * @param direction, either H2C or C2H
+ * @param error, write or read?
+ * @return ioctl return code.
+ */
+int pulp_mbox_flush(pulp_dev_t *dev, uint32_t dir, uint32_t wr);
+
+/**
  * @brief Write to a TLB entry
  *
  * @param    dev   pointer to the pulp_dev_t structure

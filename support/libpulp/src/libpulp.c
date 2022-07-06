@@ -305,6 +305,7 @@ int pulp_reset(pulp_dev_t *dev) {
 int pulp_t_start(pulp_dev_t *dev) {
 
   int ret;
+  asm volatile("": : :"memory");
   ret = ioctl(dev->fd, PULPIOT_START_T);
   asm volatile("": : :"memory");
 
@@ -622,6 +623,25 @@ int pulp_exe_wait(pulp_dev_t *dev, int timeout_s) {
 
 void pulp_dbg_stack(pulp_dev_t *dev, uint32_t stack_size, char fill) {
   pr_error("unimplemented\n");
+}
+
+int pulp_mbox_flush(pulp_dev_t *dev, uint32_t dir, uint32_t wr) {
+  int ret = 0;
+  switch(dir) {
+    case H2C_DIR: {
+      ret = pulp_quadrant_reg_write(dev,MBOX_H2C_BASE_ADDR+MBOX_CTRL_OFFSET,1<<wr);
+      return ret;
+    }
+    case C2H_DIR: {
+      ret = pulp_quadrant_reg_write(dev,MBOX_C2H_BASE_ADDR+MBOX_CTRL_OFFSET,1<<wr);
+      return ret;
+    }
+    default: {
+      ret = -1;
+      return ret;
+    }
+  }
+ return ret;
 }
 
 int pulp_mbox_set_irq(pulp_dev_t *dev, uint32_t dir, uint32_t ewr) {

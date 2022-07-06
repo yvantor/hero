@@ -181,8 +181,10 @@ int main(int argc, char *argv[]) {
 
   printf("Received from CL : %x\n",buffer);
 
-  pulp_mbox_clear_irq(pulp,C2H_DIR,0);
-  
+  pulp_mbox_clear_irq(pulp,C2H_DIR,0);  
+
+  pulp_mbox_flush(pulp,C2H_DIR,0);
+
   printf("Exiting\n");
 
   return ret;
