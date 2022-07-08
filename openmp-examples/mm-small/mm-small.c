@@ -108,14 +108,14 @@ int main(int argc, char *argv[])
    */
   uint32_t tmp_1 = 1;
   uint32_t tmp_2 = 2;
-  #pragma omp target device(HERODEV_MEMCPY) map(to: tmp_1) map(from: tmp_2)
+  #pragma omp target device(BIGPULP_MEMCPY) map(to: tmp_1) map(from: tmp_2)
   {
     tmp_2 = tmp_1;
   }
   tmp_1 = tmp_2;
 
   bench_start("PULP: Single-threaded, copy-based, no DMA");
-  #pragma omp target device(HERODEV_MEMCPY)                        \
+  #pragma omp target device(BIGPULP_MEMCPY)                        \
       map(to: a[0:width*height], b[0:width*height], width, height) \
       map(from: c[0:width*height])
   {
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
   // omp_set_num_threads(omp_get_thread_limit());
   bench_start("PULP: Parallel, copy-based, no DMA");
-  #pragma omp target device(HERODEV_MEMCPY)                        \
+  #pragma omp target device(BIGPULP_MEMCPY)                        \
       map(to: a[0:width*height], b[0:width*height], width, height) \
       map(from: c[0:width*height])
   {
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
   memset(c, 0, (size_t)(width*height));
 
   bench_start("PULP: Parallel, copy-based, DMA");
-  #pragma omp target device(HERODEV_MEMCPY)                        \
+  #pragma omp target device(BIGPULP_MEMCPY)                        \
       map(to: a[0:width*height], b[0:width*height]) \
       map(from: c[0:width*height])
   {
@@ -200,14 +200,14 @@ int main(int argc, char *argv[])
      * Actually, we should not use both devices at the same time as it is not safe. OpenMP will load
      * or boot both of them. But in reality only one accelerator is there.
      */
-    #pragma omp target device(HERODEV_SVM) map(to: tmp_1) map(from: tmp_2)
+    #pragma omp target device(BIGPULP_SVM) map(to: tmp_1) map(from: tmp_2)
     {
       tmp_2 = tmp_1;
     }
     tmp_1 = tmp_2;
 
     bench_start("PULP: Parallel, SVM, DMA");
-    #pragma omp target device(HERODEV_SVM) map(to: a[0:width*height], b[0:width*height], width, height) map(from: c[0:width*height])
+    #pragma omp target device(BIGPULP_SVM) map(to: a[0:width*height], b[0:width*height], width, height) map(from: c[0:width*height])
     {
       uint32_t width_local  = width;
       uint32_t height_local = height;
