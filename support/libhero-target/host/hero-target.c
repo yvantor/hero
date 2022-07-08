@@ -113,8 +113,8 @@ hero_l3malloc(int32_t size)
   // such this function is just a wrapper for malloc. This is different from
   // the understandig of L3 in libpulp, where it refers to unpaged buffer
   // memory for copy-on-offload data mappings. We don't expose this to the
-  // end-user, as for HERODEV_MEMCPY the offloading runtime takes care of the
-  // buffer allocation, and for HERODEV_SVM any address in DRAM can be
+  // end-user, as for BIGPULP_MEMCPY the offloading runtime takes care of the
+  // buffer allocation, and for BIGPULP_SVM any address in DRAM can be
   // resolved.
   return malloc(size);
 }
