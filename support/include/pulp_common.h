@@ -1,3 +1,5 @@
+#ifndef _PULP_COMMON_H_
+#define _PULP_COMMON_H_
 #pragma once
 
 #include <stdint.h>
@@ -111,3 +113,5 @@ struct l3_layout {
   uint32_t h2a_mbox;
   uint32_t heap;
 };
+
+#endif
