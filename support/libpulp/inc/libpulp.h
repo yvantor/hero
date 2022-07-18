@@ -391,6 +391,12 @@ int pulp_exe_wait(pulp_dev_t *dev, int timeout_s);
  * @brief Get the clk cnt difference between pulp_t_start and when the eoc arrives
  *
  */
-long unsigned int pulp_get_exe_time();
+long unsigned int pulp_get_exe_time(pulp_dev_t *dev);
 
+
+/**
+ * @brief Get the clk cnt to load the binary
+ *
+ */
+long unsigned int pulp_get_load_time();
 //!@}

@@ -310,6 +310,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   struct axi_tlb_entry tlbe;
   struct pulp_cluster *pc;
   int timed_out;
+  int i = 0;
   pc = file->private_data;
 
   // check correct magic
@@ -418,6 +419,18 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       return -EFAULT;
     return 0;
   }
+  case PULPIOC_PERIPH_START: { 
+    host_cycles_end = 0;
+    host_cycles_start=read_csr(cycle);
+    printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
+    if (copy_from_user(&sreg, p, sizeof(sreg)))
+      return -EFAULT;
+    for(i = 0; i<8; i++) {
+      cluster_periph_write(pc,CPER_RI5CY_BOOTADDR0+(i*4), sreg.val);
+    }
+    cluster_periph_write(pc,CPER_CONTROLUNIT_FE, (uint32_t) 0xff);
+    return 0;
+  }
   case PULPIOC_QUADRANT_W: { 
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
@@ -447,12 +460,6 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     timed_out = wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
     host_cycles_end=read_csr(cycle);
     return timed_out;
-  }
-  case(PULPIOT_START_T): {
-    host_cycles_end = 0;
-    host_cycles_start=read_csr(cycle);
-    printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
-    return 0;
   }
   case(PULPIOT_GET_T): {
     values.counter = host_cycles_end - host_cycles_start;

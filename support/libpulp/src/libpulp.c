@@ -32,7 +32,9 @@
 //
 // ----------------------------------------------------------------------------
 #define read_csr(reg) ({ unsigned long __tmp;    \
+  asm volatile("": : :"memory"); \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
+  asm volatile("": : :"memory"); \
   __tmp; })
 
 #define ALIGN_UP(x, p) (((x) + (p)-1) & ~((p)-1))
@@ -58,6 +60,7 @@ static void populate_boot_data(pulp_dev_t *dev, struct BootData *bd);
 //   Static Data
 //
 // ----------------------------------------------------------------------------
+static  long unsigned int bin_load_time;
 
 // Need to share L3 resources accross clusters. They are mapped by the first mmap
 // and then copied to to individual pulp devices (this is ugly but ok for now)
@@ -302,30 +305,14 @@ int pulp_reset(pulp_dev_t *dev) {
   return 0;
 }
 
-int pulp_t_start(pulp_dev_t *dev) {
-
-  int ret;
-  asm volatile("": : :"memory");
-  ret = ioctl(dev->fd, PULPIOT_START_T);
-  asm volatile("": : :"memory");
-
-  return ret;
-}
-
 int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr) {
   uint32_t ret;
+  uint32_t boot_addr_test;
+  struct pulpios_reg sreg;
+  sreg.off = 0;
+  sreg.val = boot_addr;
 
-  pulp_t_start(dev);
-  
-  pr_trace("Write boot address\n");
-  for(int i = 0; i<8; i++) {
-    ret = pulp_periph_reg_write(dev, CPER_RI5CY_BOOTADDR0 + (i*0x4), (uint32_t)boot_addr);
-    if(ret)
-      return ret;
-  }
-  
-  pr_trace("Fetch enable cores\n");
-  ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
+  ret = ioctl(dev->fd,PULPIOC_PERIPH_START,&sreg);
   if(ret)
     return ret;
   
@@ -340,7 +327,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   unsigned errs = 0;
   uint32_t boot_data_off;
   struct BootData *bd;
-
+  
   ret = access(name, R_OK);
   if (ret) {
     pr_error("Can't access file %s: %s\n", name, strerror(ret));
@@ -364,8 +351,11 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   }
 
   pr_trace("copy binary %s to L2\n", name);
+  bin_load_time = -read_csr(cycle);
   fread(dev->l2.v_addr, size, 1, fd);
+  bin_load_time += read_csr(cycle);
 
+  
   // testing: read file to memory and compare with L2
   dat = (uint8_t *)malloc(size);
   fseek(fd, 0L, SEEK_SET);
@@ -399,7 +389,7 @@ int pulp_load_bin(pulp_dev_t *dev, const char *name) {
   free(bd);
 
   // ri5cy's fetch enable
-  ret = pulp_exe_start(dev,(uint32_t)dev->l2.p_addr);
+  //ret = pulp_exe_start(dev,(uint32_t)dev->l2.p_addr);
   
   return ret;
 
@@ -758,6 +748,10 @@ int pulp_mbox_wait(pulp_dev_t *dev, int timeout_s) {
   }
   
   return ret;
+}
+
+long unsigned int pulp_get_load_time() {
+  return bin_load_time;
 }
 
 long unsigned int pulp_get_exe_time(pulp_dev_t *dev) {
