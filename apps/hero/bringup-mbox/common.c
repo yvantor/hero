@@ -12,12 +12,9 @@ int memtest(void *mem, size_t size, const char *cmt, uint8_t fillPat) {
   int test_cnt = 0;
   unsigned char *pmem = (unsigned char *)mem;
 
-  printf("[memtest] %s size %ldKiB\n", cmt, size / 1024);
-
   size_t byte_off;
   for (byte_off = 0; byte_off < size; byte_off++) {
     if ((byte_off > 0) && ((byte_off % (64 * 1024)) == 0)) {
-      printf(".");
       fflush(stdout);
     }
 
@@ -42,9 +39,6 @@ int memtest(void *mem, size_t size, const char *cmt, uint8_t fillPat) {
       break;
     }
   }
-  printf("\r[memtest] %s %s - size: %ld (%ldk), writes performed: %d, errors: %d (%.2f%%)\n",
-         err_cnt ? SHELL_RED "FAIL" SHELL_RST : SHELL_GRN "PASS" SHELL_RST, cmt, size, size / 1024,
-         test_cnt, err_cnt, 100.0 / test_cnt * err_cnt);
   return err_cnt;
 }
 

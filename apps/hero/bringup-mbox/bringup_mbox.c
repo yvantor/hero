@@ -32,6 +32,9 @@
 
 #define ALIGN_UP(x, p) (((x) + (p)-1) & ~((p)-1))
 
+#define read_csr(reg) ({ unsigned long __tmp; \
+  asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
+  __tmp; })
 
 int wakeup_all(pulp_dev_t **clusters, uint32_t nr_dev) {
   int ret = 0;
@@ -95,9 +98,11 @@ int main(int argc, char *argv[]) {
   uint32_t mask;
   struct axi_tlb_entry tlb_entry;
 
+  #ifdef VERBOSE
   printf("This is %s\n", argv[0]);
   printf("Usage: %s [pulp_binary [cluster_idx]]\n", argv[0]);
   printf("  Default cluster index is %d\n", DFLT_CLUSTER_IDX);
+  #endif
   cluster_idx = DFLT_CLUSTER_IDX;
   if (argc == 3) {
     cluster_idx = atoi(argv[2]);
@@ -123,8 +128,10 @@ int main(int argc, char *argv[]) {
     tlb_entry.loc = AXI_TLB_NARROW;
     tlb_entry.idx = i;
     pulp_tlb_read(pulp, &tlb_entry);
+    #ifdef VERBOSE
     printf("TLB readback Narrow: idx %ld first %012lx last %012lx base %012lx flags %02x\n", tlb_entry.idx,
           tlb_entry.first, tlb_entry.last, tlb_entry.base, tlb_entry.flags);
+    #endif
   }
   
   // De-isolate quadrant
@@ -139,12 +146,8 @@ int main(int argc, char *argv[]) {
   if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 'T'))
     return -1;
 
-  printf("memtest l1 passed\n");
-
   wakeup_all(clusters,nr_dev);
-  printf("Choped the Suey!\n");
     
-  
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048
   // For largest conv2d problem: (64*112*112+64*64*7*7+64*112*112)*sizeof(double) = 14112*1024
@@ -152,35 +155,45 @@ int main(int argc, char *argv[]) {
   shared_l3_v = pulp_l3_malloc(pulp, 2 * 14112 * 1024, &addr);
   assert(shared_l3_v);
   pulp->l3l->heap = (uint32_t)(uintptr_t)addr;
-  printf("alloc l3l_v->heap: %08x\r\n", pulp->l3l->heap);
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
 
   pulp_mbox_set_irq(pulp,C2H_DIR,0);
-  // Loads the bin and executes pulp_exe_start()
+  pulp_mbox_write(pulp,0x90000000);
+  pulp_mbox_write(pulp,0x90004000);
+  pulp_mbox_write(pulp,0x90008000);
+
+  // Loads the bin
   size = pulp_load_bin(pulp, argv[1]);
 
-  ret = pulp_mbox_try_write(pulp);
+  unsigned long int start;
+  unsigned long int mid;
+  unsigned long int end;
+  uint32_t buffer[2];
+  asm volatile("": : :"memory");
+  start = read_csr(cycle);
+  asm volatile("": : :"memory");
+  ret = pulp_exe_start(pulp,0x1C000000);
+  asm volatile("": : :"memory");
+  mid = read_csr(cycle);
+  asm volatile("": : :"memory");
+  ret = pulp_mbox_wait(pulp,100);
+  asm volatile("": : :"memory");
+  end = read_csr(cycle);
+  asm volatile("": : :"memory");  
 
-  if(ret==0)
-    pulp_mbox_write(pulp,0xabbaabba);
 
-  ret  = pulp_mbox_wait(pulp,1);
-
-  uint32_t buffer=0;
-  
-  ret = pulp_mbox_read(pulp,&buffer,1);
-
-  printf("Received from CL : %x\n",buffer);
+  pulp_mbox_read(pulp,buffer,1);
+  printf("Received from CL : %d\n",buffer[0]);
 
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);
-  
-  printf("Cycle count %lu\n", pulp_get_exe_time(pulp));
-  
-  ret = pulp_mbox_read(pulp,&buffer,1);
 
-  printf("Received from CL : %x\n",buffer);
-
+  printf("Load bin time %lu\n", pulp_get_load_time());
+  printf("Exe start count %lu\n", mid - start);
+  printf("Read mbox count %lu\n", end - mid);
+  printf("Total %lu \n", end - start);
+  printf("Cycle count %lu\n", pulp_get_exe_time(pulp)); 
+  
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);  
 
   pulp_mbox_flush(pulp,C2H_DIR,0);
