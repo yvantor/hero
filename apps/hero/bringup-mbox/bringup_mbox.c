@@ -142,12 +142,13 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  // fill memory with known pattern
-  if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 'T'))
+  // Zero the memory to ensure 
+  if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 0x0))
     return -1;
 
-  wakeup_all(clusters,nr_dev);
-    
+  if (memtest(pulp->l2.v_addr, pulp->l2.size, "TCDM", 0x0))
+    return -1;
+
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048
   // For largest conv2d problem: (64*112*112+64*64*7*7+64*112*112)*sizeof(double) = 14112*1024
@@ -158,13 +159,18 @@ int main(int argc, char *argv[]) {
   if (memtest(shared_l3_v, 1024, "L3", '3'))
     return -1;
 
+  pulp_reset(pulp);
+
+  // Loads the bin
+  size = pulp_load_bin(pulp, argv[1]);
+
+  //  wakeup_all(clusters,nr_dev);
+
   pulp_mbox_set_irq(pulp,C2H_DIR,0);
   pulp_mbox_write(pulp,0x90000000);
   pulp_mbox_write(pulp,0x90004000);
   pulp_mbox_write(pulp,0x90008000);
 
-  // Loads the bin
-  size = pulp_load_bin(pulp, argv[1]);
 
   unsigned long int start;
   unsigned long int mid;
@@ -177,11 +183,10 @@ int main(int argc, char *argv[]) {
   asm volatile("": : :"memory");
   mid = read_csr(cycle);
   asm volatile("": : :"memory");
-  ret = pulp_mbox_wait(pulp,100);
+  ret = pulp_mbox_wait(pulp,10);
   asm volatile("": : :"memory");
   end = read_csr(cycle);
   asm volatile("": : :"memory");  
-
 
   pulp_mbox_read(pulp,buffer,1);
   printf("Received from CL : %d\n",buffer[0]);
@@ -189,8 +194,8 @@ int main(int argc, char *argv[]) {
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);
 
   printf("Load bin time %lu\n", pulp_get_load_time());
-  printf("Exe start count %lu\n", mid - start);
-  printf("Read mbox count %lu\n", end - mid);
+  printf("EXE S %lu \n", mid - start);
+  printf("MBOX %lu \n", end - mid);
   printf("Total %lu \n", end - start);
   printf("Cycle count %lu\n", pulp_get_exe_time(pulp)); 
   
@@ -199,6 +204,8 @@ int main(int argc, char *argv[]) {
   pulp_mbox_flush(pulp,C2H_DIR,0);
 
   printf("Exiting\n");
+
+  pulp_l3_free(pulp, shared_l3_v);
 
   return ret;
 }

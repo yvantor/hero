@@ -428,6 +428,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     for(i = 0; i<8; i++) {
       cluster_periph_write(pc,CPER_RI5CY_BOOTADDR0+(i*4), sreg.val);
     }
+    wakeup(pc);
     cluster_periph_write(pc,CPER_CONTROLUNIT_FE, (uint32_t) 0xff);
     return 0;
   }
@@ -651,7 +652,13 @@ static int wakeup(struct pulp_cluster *pc) {
   u32 timeout = 1000; // [x10 us]
   uint32_t iso;
   
-  soc_reg_write(0,0x3); 
+  soc_reg_write(0,0x3);
+  do {
+    iso = get_isolation(quadrant_id);
+    if (iso != 0x3)
+      udelay(10);
+  } while (iso != 0x3 && --timeout);
+
   soc_reg_write(0,0x7);
   do {
     iso = get_isolation(quadrant_id);
@@ -660,6 +667,7 @@ static int wakeup(struct pulp_cluster *pc) {
   } while (iso != 0x7 && --timeout);
 
   if (iso != 0x7) {
+    info("Something went wrong with the wakeup\n");
     set_reset(pc, 1);
     return -ETIMEDOUT;
   }

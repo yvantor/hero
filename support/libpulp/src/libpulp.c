@@ -291,7 +291,7 @@ int pulp_flush(pulp_dev_t *dev) {
 
 int pulp_reset(pulp_dev_t *dev) {
   int ret;
-
+  
   // Put clusters in isolation
   ret = pulp_isolate(dev, 1);
   if (ret)
@@ -577,7 +577,7 @@ void *pulp_l3_malloc(pulp_dev_t *dev, size_t size, void **p_addr) {
   return v_addr;
 }
 
-void pulp_l3_free(pulp_dev_t *dev, void *v_addr, void *p_addr) {
+void pulp_l3_free(pulp_dev_t *dev, void *v_addr) {
   o1heapFree((O1HeapInstance *)dev->l3_heap_mgr, v_addr);
 }
 

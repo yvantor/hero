@@ -252,10 +252,9 @@ void *pulp_l3_malloc(pulp_dev_t *dev, size_t size, void **p_addr);
 
  \param    dev   pointer to the pulp_dev_t structure
  \param    v_addr pointer to unsigned containing the virtual address
- \param    p_addr pointer to unsigned containing the physical address
 
  */
-void pulp_l3_free(pulp_dev_t *dev, void *v_addr, void *p_addr);
+void pulp_l3_free(pulp_dev_t *dev, void *v_addr);
 
 /** Enable mbox irq generation
 
