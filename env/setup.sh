@@ -17,7 +17,7 @@ export PLATFORM=ARIANE
 export BOARD=URANIA
 
 export ARCH="riscv"
-export HERO_TOOLCHAIN_HOST_TARGET="${ARCH}64-hero-linux-gnu"
+export HERO_TOOLCHAIN_HOST_TARGET="${ARCH}64-buildroot-linux-gnu"
 export CROSS_COMPILE="${HERO_TOOLCHAIN_HOST_TARGET}-"
 
 export HERO_TOOLCHAIN_HOST_LINUX_ARCH="${ARCH}"

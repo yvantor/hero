@@ -7,7 +7,7 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR  := $(dir $(MKFILE_PATH))
 ROOT        := ${MKFILE_DIR}../../..
 ROOTFS      := $(ROOT)/rootfs
-RV64_CC     := $(HERO_INSTALL)/bin/riscv64-hero-linux-gnu-gcc
+RV64_CC     := $(HERO_INSTALL)/bin/riscv64-buildroot-linux-gnu-gcc
 
 OBJ_C := common.o
 APPS  := bringup_mbox
