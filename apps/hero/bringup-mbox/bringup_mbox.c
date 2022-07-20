@@ -146,9 +146,6 @@ int main(int argc, char *argv[]) {
   if (memtest(pulp->l1.v_addr, pulp->l1.size, "TCDM", 0x0))
     return -1;
 
-  if (memtest(pulp->l2.v_addr, pulp->l2.size, "TCDM", 0x0))
-    return -1;
-
   // and some test scratch l3 memory
   // For largest axpy problem: (2*N+1)*sizeof(double), N=3*3*6*2048
   // For largest conv2d problem: (64*112*112+64*64*7*7+64*112*112)*sizeof(double) = 14112*1024
