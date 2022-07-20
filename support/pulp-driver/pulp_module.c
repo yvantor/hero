@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h> /* Necessary because we use the proc fs */
 #include <linux/spinlock.h>
-
 #include "pulp_module.h"
 #include "pulp_reg.h"
 
@@ -131,6 +130,8 @@ static uint32_t cluster_periph_read              (struct pulp_cluster *pc, uint3
 static uint32_t get_isolation                    (uint32_t quadrant);
 static void     soc_reg_write                    (uint32_t reg_off, uint32_t val);
 static uint32_t soc_reg_read                     (uint32_t reg_off);
+static void     timer_reg_write                  (uint32_t reg_off, uint32_t val);
+static uint32_t timer_reg_read                   (uint32_t reg_off);
 static void     quadrant_ctrl_reg_write          (struct quadrant_ctrl *qc, uint32_t reg_off, uint32_t val);
 static uint32_t quadrant_ctrl_reg_read           (struct quadrant_ctrl *qc, uint32_t reg_off);
 static struct   quadrant_ctrl *get_quadrant_ctrl (u32 quadrant_idx);
@@ -173,8 +174,7 @@ static DECLARE_COMPLETION(mbox_finished);
  * @brief Cycle # when the cluster ends
  *
  */
-static uint64_t host_cycles_start;
-static uint64_t host_cycles_end;
+static uint32_t host_cycles_end;
 
 // ----------------------------------------------------------------------------
 //
@@ -192,6 +192,17 @@ spinlock_t soc_lock;
  * @soc_regs: kernel-mapped soc-control registers
  */
 void __iomem *soc_regs;
+
+/**
+ * @soc_lock: Protects the timer-reg resources
+ */
+spinlock_t timer_lock;
+/**
+ * timer-regs are ioremapped by the first module probe
+ *
+ * @timer_regs: kernel-mapped apb timer registers
+ */
+void __iomem *timer_regs;
 
 // ----------------------------------------------------------------------------
 //
@@ -284,15 +295,17 @@ irqreturn_t pulp_isr(int irq, void *dev)
 
   pc = dev;
 
+  asm volatile ("": : :"memory");
+  host_cycles_end = timer_reg_read(TIMER_COUNTER);
+  asm volatile ("": : :"memory");
+
   dbg("PULP: Handling IRQ %0d.\n", irq);
 
   if(irq == pc->irq_mbox) {
     complete(&mbox_finished);
-    printk(KERN_DEBUG "PULP: mbox @ cycle %lld\n", host_cycles_end);    
   }
   else if (irq == pc->irq_eoc) {
     complete(&ctrl_finished);
-    printk(KERN_DEBUG "PULP: eot @ cycle %lld\n", host_cycles_end);    
   }
   else {
     printk(KERN_WARNING "PULP: Cannot handle interrupt %d, cannot be mapped to to identifier\n", irq);
@@ -309,8 +322,8 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   struct pulpiot_val values;
   struct axi_tlb_entry tlbe;
   struct pulp_cluster *pc;
-  int timed_out;
   int i = 0;
+  int timed_out;
   pc = file->private_data;
 
   // check correct magic
@@ -421,8 +434,10 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   }
   case PULPIOC_PERIPH_START: { 
     host_cycles_end = 0;
-    host_cycles_start=read_csr(cycle);
-    printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
+    //reset the counter and enable
+    timer_reg_write(TIMER_COUNTER,0);
+    timer_reg_write(TIMER_CTRL,1);
+    asm volatile ("": : :"memory"); 
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     for(i = 0; i<8; i++) {
@@ -451,20 +466,20 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   case(PULPIOT_WAIT_MBOX): {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
-    timed_out = wait_for_completion_interruptible_timeout(&mbox_finished,values.timeout * HZ / 1000);
-    host_cycles_end=read_csr(cycle);
-    return timed_out;
+    timed_out = wait_for_completion_timeout(&mbox_finished,values.timeout * HZ / 1000);
+    info("time count: %u\n", host_cycles_end);
+    return host_cycles_end;
   }
   case(PULPIOT_WAIT_EOC): {
     if (copy_from_user(&values, p, sizeof(values)))
       return -EFAULT;
-    timed_out = wait_for_completion_interruptible_timeout(&ctrl_finished,values.timeout * HZ / 1000);
-    host_cycles_end=read_csr(cycle);
-    return timed_out;
+    timed_out = wait_for_completion_timeout(&mbox_finished,values.timeout * HZ / 1000);
+    info("time count: %u\n", host_cycles_end);
+    return host_cycles_end;
   }
   case(PULPIOT_GET_T): {
-    values.counter = host_cycles_end - host_cycles_start;
-    printk(KERN_DEBUG "PULP: counter @ cycle %lld - % lld = %lld\n", host_cycles_end , host_cycles_start, values.counter);    
+    values.counter = host_cycles_end ;
+    printk(KERN_DEBUG "PULP: counter @ cycle %u = %u\n", host_cycles_end , (uint32_t) values.counter);    
     if (copy_to_user(p, &values, sizeof(values)))
       return -EFAULT;
     return 0;
@@ -705,6 +720,21 @@ static uint32_t soc_reg_read(uint32_t reg_off) {
   spin_unlock(&soc_lock);
   return val;
 }
+static void timer_reg_write(uint32_t reg_off, uint32_t val) {
+  u32 rb;
+  spin_lock(&timer_lock);
+  iowrite32(val, (void *)timer_regs + reg_off);
+  rb = ioread32((void *)timer_regs + reg_off);
+  spin_unlock(&timer_lock);
+  dbg("timer_reg_write reg %d value %08x rb: %08x\n", reg_off, val, rb);
+}
+static uint32_t timer_reg_read(uint32_t reg_off) {
+  u32 val;
+  spin_lock(&timer_lock);
+  val = ioread32((void *)timer_regs + reg_off);
+  spin_unlock(&timer_lock);
+  return val;
+}
 static void cluster_periph_write(struct pulp_cluster *pc, uint32_t reg_off, uint32_t val) {
   iowrite32(val, (void *)(pc->pbase + reg_off));
 }
@@ -807,6 +837,7 @@ static int pulp_probe(struct platform_device *pdev) {
   struct quadrant_ctrl *qc;
   struct device_node *np;
   struct resource socres;
+  struct resource timerres;
   struct resource quadctrlres;
   int ret;
   int err = 0;
@@ -906,6 +937,25 @@ static int pulp_probe(struct platform_device *pdev) {
     }
   }
   dev_info(&pdev->dev, "soc_regs virt %px\n", (void *)soc_regs);
+
+  // APB timer
+  if (!timer_regs) {
+    spin_lock_init(&timer_lock);
+    np = of_parse_phandle(pdev->dev.of_node, "eth,timer-ctl", 0);
+    if (!np) {
+      dev_err(&pdev->dev, "No %s specified\n", "eth,timer-ctl");
+      err = -EINVAL;
+      goto out;
+    }
+    ret = of_address_to_resource(np, 0, &timerres);
+    timer_regs = devm_ioremap_resource(&pdev->dev, &timerres);
+    if (IS_ERR(timer_regs)) {
+      dev_err(&pdev->dev, "could not map timer-ctl regs\n");
+      err = PTR_ERR(timer_regs);
+      goto out;
+    }
+  }
+  dev_info(&pdev->dev, "timer_regs virt %px\n", (void *)timer_regs);
 
   // Quadrant control
   qc = get_quadrant_ctrl(pc->pci.quadrant_idx);

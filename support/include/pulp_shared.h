@@ -208,4 +208,7 @@ struct axi_tlb_entry {
 #define CPER_RI5CY_BOOTADDR0 0x40
 #define CPER_INSTRSCACHE_FE  0x1400
 
+#define TIMER_COUNTER 0x0
+#define TIMER_CTRL 0x4
+#define TIMER_CMP 0x8
 #endif
