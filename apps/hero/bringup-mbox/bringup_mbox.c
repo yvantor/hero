@@ -171,33 +171,18 @@ int main(int argc, char *argv[]) {
   pulp_mbox_write(pulp,0x90004000);
   pulp_mbox_write(pulp,0x90008000);
 
-
-  unsigned long int start;
-  unsigned long int mid;
-  unsigned long int end;
   uint32_t buffer[2];
-  asm volatile("": : :"memory");
-  start = read_csr(cycle);
-  asm volatile("": : :"memory");
-  ret = pulp_exe_start(pulp,0x1C000000);
-  asm volatile("": : :"memory");
-  mid = read_csr(cycle);
-  asm volatile("": : :"memory");
-  ret = pulp_mbox_wait(pulp,10);
-  asm volatile("": : :"memory");
-  end = read_csr(cycle);
-  asm volatile("": : :"memory");  
 
+  ret = pulp_exe_start(pulp,0x1C000000);
+  ret = pulp_mbox_wait(pulp,10);
+  
   pulp_mbox_read(pulp,buffer,1);
   printf("Received from CL : %d\n",buffer[0]);
 
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);
 
   printf("Load bin time %lu\n", pulp_get_load_time());
-  printf("EXE S %lu \n", mid - start);
-  printf("MBOX %lu \n", end - mid);
-  printf("Total %lu \n", end - start);
-  printf("Cycle count %lu\n", pulp_get_exe_time(pulp)); 
+  printf("Module cycle count %lu\n", pulp_get_exe_time(pulp)); 
   
   pulp_mbox_clear_irq(pulp,C2H_DIR,0);  
 
