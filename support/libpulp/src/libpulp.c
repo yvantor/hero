@@ -5,7 +5,7 @@
  * @Last Modified time: 2020-11-09 17:09:55
  */
 #include "libpulp.h"
-#include "herodev.h"
+// #include "herodev.h"
 #include "pulp_mbox.h"
 
 #include "debug.h"

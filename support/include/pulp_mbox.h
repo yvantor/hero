@@ -56,3 +56,4 @@
 #define MBOX_H2C_BASE_ADDR 0x2000
 #define MBOX_C2H_BASE_ADDR 0x3000
 #define MBOX_SIZE_B 0x1000 // Interface 0 only
+#define MBOX_DEVICE_LOGLVL (0x10U)
