@@ -56,6 +56,12 @@ struct pulp_cluster_info {
 #define PULP_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
 #define PULP_MMAP_L2 (2 * sysconf(_SC_PAGE_SIZE))
 
+typedef enum {
+  inout = 0,
+  in = 1,
+  out = 2,
+} ElemType;
+
 /**
  * IOCTL
  */
