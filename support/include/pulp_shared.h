@@ -206,4 +206,11 @@ struct axi_tlb_entry {
 #define CPER_RI5CY_BOOTADDR0 0x40
 #define CPER_INSTRSCACHE_FE  0x1400
 
+#define N_CLUSTERS 1
+// #define N_CORES 2
+#define L2_MEM_SIZE_KB 512
+#define L1_MEM_SIZE_KB 256
+#define PULP_DEFAULT_FREQ_MHZ 50
+#define CLKING_INPUT_FREQ_MHZ 100
+
 #endif
