@@ -217,4 +217,11 @@ struct axi_tlb_entry {
 #define TIMER_COUNTER 0x0
 #define TIMER_CTRL 0x4
 #define TIMER_CMP 0x8
+#define N_CLUSTERS 1
+// #define N_CORES 2
+#define L2_MEM_SIZE_KB 512
+#define L1_MEM_SIZE_KB 256
+#define PULP_DEFAULT_FREQ_MHZ 50
+#define CLKING_INPUT_FREQ_MHZ 100
+
 #endif

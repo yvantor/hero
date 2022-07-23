@@ -40,8 +40,10 @@ struct BootData {
 
 typedef struct {
   int fd; // file descriptor
+  PulpSubDev clusters;
   struct pulp_cluster_info pci;
   PulpSubDev l1;
+  PulpSubDev l2;
   PulpSubDev periph;
   PulpSubDev l3;
   PulpSubDev l2;
@@ -52,6 +54,7 @@ typedef struct {
   struct l3_layout *l3l;
   // Physical address of l3_layout data
   void *l3l_p;
+  unsigned int cluster_sel;
   volatile struct ring_buf *a2h_mbox;
   volatile struct ring_buf *h2a_mbox;
 } pulp_dev_t;
@@ -72,6 +75,53 @@ typedef struct {
   uint32_t tcdmCongested;
   uint32_t *counters;
 } pulp_perf_t;
+
+// striping informationg structure
+typedef struct {
+  unsigned n_stripes;
+  unsigned first_stripe_size_b;
+  unsigned last_stripe_size_b;
+  unsigned stripe_size_b;
+} StripingDesc;
+
+typedef enum {
+  copy = 0x0, // no SVM, copy-based sharing using contiguous L3 memory
+  svm_static = 0x1, // SVM, set up static mapping at offload time, might fail - use with caution
+  svm_stripe = 0x2, // SVM, use striping (L1 only), might fail - use with caution
+  svm_mh = 0x3, // SVM, use miss handling
+  copy_tryx = 0x4, // no SVM, copy-based sharing using contiguous L3 memory, but let PULP do the tryx()
+  svm_smmu = 0x5, // SVM, use SMMU instead of RAB
+  svm_smmu_shpt = 0x6, // SVM, use SMMU, emulate sharing of user-space page table, no page faults
+  custom = 0xF, // do not touch (custom marshalling)
+} ShMemType;
+
+typedef enum {
+  val = 0x0, // pass by value
+
+  ref_copy = 0x10, // pass by reference, no SVM, use contiguous L3 memory
+  ref_svm_static = 0x11, // pass by reference, SVM, set up mapping at offload time
+  ref_svm_stripe = 0x12, // pass by reference, SVM, set up striped mapping
+  ref_svm_mh = 0x13, // pass by reference, SVM, do not set up mapping, use miss handling
+  ref_copy_tryx = 0x14, // pass by reference, no SVM, use contiguous L3 memory, but to the tryx() - mapped to 0x10
+  ref_custom = 0x1F, // pass by reference, do not touch (custom marshalling)
+} ElemPassType;
+
+// shared variable data structure
+typedef struct {
+  void *ptr; // address in host virtual memory
+  void *ptr_l3_v; // host virtual address in contiguous L3 memory   - filled by runtime library based on sh_mem_ctrl
+  void *ptr_l3_p; // PULP physical address in contiguous L3 memory  - filled by runtime library based on sh_mem_ctrl
+  unsigned size; // size in Bytes
+  ElemType type; // inout, in, out
+  ShMemType sh_mem_ctrl;
+  unsigned char cache_ctrl; // 0: flush caches, access through DRAM
+    // 1: do not flush caches, access through caches
+  unsigned char rab_lvl; // 0: first L1, L2 when full
+    // 1: L1 only
+    // 2: L2 only
+  StripingDesc *stripe_desc; // only used if sh_mem_ctrl = 2
+} DataDesc;
+
 
 /*     _    ____ ___
  *    / \  |  _ \_ _|
