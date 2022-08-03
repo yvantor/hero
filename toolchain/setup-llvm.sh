@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-CMAKE = cmake-3.18.1
+set CMAKE = cmake-3.18.1
 if [ ! -z "$UBUNTU" ]; then
-CMAKE = cmake
+set CMAKE = cmake
 fi
 
 ### SETUP A HERO LLVM RTE ###
@@ -59,13 +59,13 @@ echo "Building LLVM project"
 # - Do not build PULP libomptarget offloading plugin as part of the LLVM build on the *development*
 #   machine.  That plugin will be compiled for each Host architecture through a Buildroot package.
 # $HERO_INSTALL/bin/cmake
-$CMAKE -G Ninja -DCMAKE_BUILD_TYPE="Release" \
+$CMAKE -G Ninja -DCMAKE_BUILD_TYPE="Debug" \
       -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
       -DCMAKE_INSTALL_PREFIX=$HERO_INSTALL \
       -DCMAKE_FIND_NO_INSTALL_PREFIX=True \
       -DLLVM_OPTIMIZED_TABLEGEN=True -DLLVM_BUILD_TESTS=False \
       -DDEFAULT_SYSROOT=$HERO_INSTALL/riscv64-hero-linux-gnu \
-      -DLLVM_DEFAULT_TARGET_TRIPLE=riscv64-hero-linux-gnu \
+      -DLLVM_DEFAULT_TARGET_TRIPLE=riscv32-hero-unknown-elf \
       -DLLVM_TARGETS_TO_BUILD="RISCV" \
       -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
       -DLLVM_ENABLE_PROJECTS="clang;openmp;lld" \
@@ -88,7 +88,7 @@ cd llvm-support_build
 # FIXME: integrate LLVM passes better in the HERO architecture
 echo "Building LLVM support passes"
 # $HERO_INSTALL/bin/cmake
-$CMAKE -G Ninja -DCMAKE_INSTALL_PREFIX=$HERO_INSTALL -DCMAKE_BUILD_TYPE="Release" \
+$CMAKE -G Ninja -DCMAKE_INSTALL_PREFIX=$HERO_INSTALL -DCMAKE_BUILD_TYPE="Debug" \
       -DLLVM_DIR:STRING=$HERO_INSTALL/lib/cmake/llvm \
       -DCMAKE_C_COMPILER=$CC \
       -DCMAKE_CXX_COMPILER=$CXX \
@@ -103,7 +103,7 @@ cd hercules_build
 echo "Building Hercules LLVM passes"
 # $HERO_INSTALL/bin/cmake
 $CMAKE -G Ninja -DCMAKE_INSTALL_PREFIX=$HERO_INSTALL \
-      -DCMAKE_BUILD_TYPE="Release" \
+      -DCMAKE_BUILD_TYPE="Debug" \
       -DLLVM_DIR:STRING=$HERO_INSTALL/lib/cmake/llvm \
       -DCMAKE_C_COMPILER=$CC \
       -DCMAKE_CXX_COMPILER=$CXX \
