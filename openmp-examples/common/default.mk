@@ -17,6 +17,8 @@ ifeq ($(strip $(opt)),)
   opt = 3
 endif
 
+# debug = -save-temps=obj
+
 .DEFAULT_GOAL = all
 DEFMK_ROOT := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
@@ -24,19 +26,20 @@ DEFMK_ROOT := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 # 1) without suffix, they apply to heterogeneous compilation;
 # 3) with _PULP suffix, they apply only to the PULP part of compilation;
 # 4) with _COMMON suffix, they apply to both PULP and host compilation.
-CFLAGS_COMMON += $(cflags) -fopenmp=libomp -O$(opt) -static
+CFLAGS_COMMON += $(cflags) -fopenmp=libomp -O$(opt) -g -static
 CFLAGS_PULP += $(CFLAGS_COMMON) -target $(TARGET_DEV) -I$(HERO_PULP_INC_DIR)
-CFLAGS += -target $(TARGET_HOST) --sysroot=$(HERO_INSTALL)/riscv64-hero-linux-gnu/sysroot/ $(CFLAGS_COMMON) -fopenmp-targets=$(TARGET_DEV)
-LDFLAGS_COMMON ?= $(ldflags) -static
+CFLAGS += -target $(TARGET_HOST) $(CFLAGS_COMMON) -fopenmp-targets=$(TARGET_DEV) --sysroot=$(HERO_INSTALL)/riscv64-hero-linux-gnu/sysroot/
+LDFLAGS_COMMON ?= $(ldflags) -static -lhero-target
 ifdef HERCULES_INSTALL
 	LDFLAGS_COMMON += -lpremnotify
 endif
 LDFLAGS_PULP += $(LDFLAGS_COMMON)
-LDFLAGS += $(LDFLAGS_COMMON) -lhero-target
-ifeq ($(TARGET_HOST),riscv64-hero-linux-gnu)
-  # FIXME: we explicitly need to embed the correct linker for riscv
-  LDFLAGS += -Wl,-dynamic-linker,/lib/ld-linux-riscv64-lp64d.so.1,
-endif
+# LDFLAGS += $(LDFLAGS_COMMON) -lhero-target
+# ifeq ($(TARGET_HOST),riscv64-hero-linux-gnu)
+#   # FIXME: we explicitly need to embed the correct linker for riscv
+#   LDFLAGS += -Wl,-dynamic-linker,/lib/ld-linux-riscv64-lp64d.so.1,
+# endif
+LDFLAGS += $(LDFLAGS_COMMON)
 
 INCPATHS += -I$(DEFMK_ROOT) -include hero_64.h
 LIBPATHS ?=
@@ -92,31 +95,31 @@ else
 all: $(DEPS) $(EXE) $(EXE).dis $(EXE).pulp.dis
 
 %.ll: %.c $(DEPDIR)/%.d | $(DEPDIR)
-	$(CC) -c -emit-llvm -S $(DEPFLAGS) $(CFLAGS) $(INCPATHS) $<
-	$(COB) -inputs=$@ -outputs="$(<:.c=-host.ll),$(<:.c=-dev.ll)" -type=ll -targets="$(ARCH_HOST),$(ARCH_DEV)" -unbundle
+	@$(CC) $(debug) -c -emit-llvm -S $(DEPFLAGS) $(CFLAGS) $(INCPATHS) $<
+	@$(COB) -### -inputs=$@ -outputs="$(<:.c=-host.ll),$(<:.c=-dev.ll)" -type=ll -targets="$(ARCH_HOST),$(ARCH_DEV)" -unbundle
 
 %-dev.OMP.ll: %.ll
-	cp $(<:.ll=-dev.ll) $(@:.OMP.ll=.TMP.1.ll)
-	hc-omp-pass $(@:.OMP.ll=.TMP.1.ll) OmpKernelWrapper "HERCULES-omp-kernel-wrapper" $(@:.OMP.ll=.TMP.2.ll)
-	hc-omp-pass $(@:.OMP.ll=.TMP.2.ll) OmpHostPointerLegalizer "HERCULES-omp-host-pointer-legalizer" $(@:.OMP.ll=.TMP.3.ll)
-	cp $(@:.OMP.ll=.TMP.3.ll) $@
+	@cp $(<:.ll=-dev.ll) $(@:.OMP.ll=.TMP.1.ll)
+	@hc-omp-pass $(@:.OMP.ll=.TMP.1.ll) OmpKernelWrapper "HERCULES-omp-kernel-wrapper" $(@:.OMP.ll=.TMP.2.ll)
+	@hc-omp-pass $(@:.OMP.ll=.TMP.2.ll) OmpHostPointerLegalizer "HERCULES-omp-host-pointer-legalizer" $(@:.OMP.ll=.TMP.3.ll)
+	@cp $(@:.OMP.ll=.TMP.3.ll) $@
 
 %-host.OMP.ll: %.ll
-	hc-omp-pass $(<:.ll=-host.ll) OmpKernelWrapper "HERCULES-omp-kernel-wrapper" $(@:.OMP.ll=.TMP.1.ll)
-	cp $(@:.OMP.ll=.TMP.1.ll) $@
+	@hc-omp-pass $(<:.ll=-host.ll) OmpKernelWrapper "HERCULES-omp-kernel-wrapper" $(@:.OMP.ll=.TMP.1.ll)
+	@cp $(@:.OMP.ll=.TMP.1.ll) $@
 
 %-out.ll: %-host.OMP.ll %-dev.OMP.ll
-	$(COB) -inputs="$(@:-out.ll=-host.OMP.ll),$(@:-out.ll=-dev.OMP.ll)" -outputs=$@ -type=ll -targets="$(ARCH_HOST),$(ARCH_DEV)"
+	@$(COB) -inputs="$(@:-out.ll=-host.OMP.ll),$(@:-out.ll=-dev.OMP.ll)" -outputs=$@ -type=ll -targets="$(ARCH_HOST),$(ARCH_DEV)"
 
 exeobjs := $(patsubst %.c, %-out.ll, $(SRC))
 $(EXE): $(exeobjs)
-	$(CC) $(LIBPATHS) $(CFLAGS) $(exeobjs) $(LDFLAGS) -o $@
+	@$(CC) $(debug) $(LIBPATHS) $(CFLAGS) $(exeobjs) $(LDFLAGS) -o $@
 
 $(EXE).dis: $(EXE)
-	$(HOST_OBJDUMP) -d $^ > $@
+	@$(HOST_OBJDUMP) -d $^ > $@
 
 $(EXE).pulp.dis: $(EXE)
-	$(DEFMK_ROOT)/extract_device_image.py $^ $^_riscv.elf \
+	@$(DEFMK_ROOT)/extract_device_image.py $^ $^_riscv.elf \
       && $(DEV_OBJDUMP) -d $^_riscv.elf > $@
 
 endif
