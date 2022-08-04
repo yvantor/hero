@@ -115,12 +115,12 @@
         };
       };
     };
-    timer@18000000 {
-      compatible = "pulp,apb_timer";
+    timer0: perf-timer@18000000 {
+      compatible = "eth,alsaqr";
       interrupts = <0x00000004 0x00000005 0x00000006 0x00000007>;
       reg = <0x00000000 0x18000000 0x00000000 0x00001000>;
       interrupt-parent = <&PLIC0>;
-      reg-names = "control";
+      reg-names = "timer-control";
     };
     soc_ctl0: soc-control@1a106000 {
       compatible = "alsaqr,alsaqr-soc-control";
@@ -135,7 +135,7 @@
     pulp-cluster@10000000 {
      compatible = "eth,alsaqr";
      reg-names = "tcdm", "peripheral","spm";
-     reg = <0x0 0x10000000 0x0 0x40000> , <0x0 0x10200000 0x0 0x200000>, <0x0 0x1C000000 0x0 0x100000>;
+     reg = <0x0 0x10000000 0x0 0x40000> , <0x0 0x10200000 0x0 0x200000>, <0x0 0x1C000000 0x0 0x80000>;
      memory-region = <&pulp_mem>;
      interrupt-parent = <&PLIC0>;
      interrupts = <0x8 0x9>;
@@ -146,6 +146,7 @@
      eth,quadrant-ctrl = <&quadrant_ctrl0>;
      eth,quadrant-idx = <0>;
      eth,plic = <&PLIC0>;
+     eth,timer-ctl = <&timer0>;
      };
   };
 };
