@@ -52,8 +52,9 @@ struct pulp_cluster_info {
  * Macros to calculate the base address for mmap'ing regions to user space. Must be a multple of
  * PAGE_SHIFT
  */
-#define PULP_MMAP_L3 (0 * sysconf(_SC_PAGE_SIZE))
-#define PULP_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L3_MAIN (0 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_TCDM    (1 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L2_SCPM (2 * sysconf(_SC_PAGE_SIZE))
 
 typedef enum {
   inout = 0,
@@ -178,7 +179,7 @@ struct axi_tlb_entry {
  * @brief start counter in kernel space
  *
  */
-#define PULPIOT_START_T _IO(PULPIOC_MAGIC, 14)
+#define PULPIOC_PERIPH_START _IOW(PULPIOC_MAGIC, 14, struct pulpios_reg)
 
 /**
  * @brief write in cluster periph region

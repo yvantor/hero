@@ -23,10 +23,19 @@
 #endif
 
 /* MAILBOX REGISTERS */
+// #define MAILBOX_REG_WRDATA            ( ARCHI_MAILBOX_BASE_ADDR + 0x00)
+// #define MAILBOX_REG_RDDATA            ( ARCHI_MAILBOX_BASE_ADDR + 0x10)
+// #define MAILBOX_REG_STATUS            ( ARCHI_MAILBOX_BASE_ADDR + 0x20)
+// #define MAILBOX_REG_ERROR             ( ARCHI_MAILBOX_BASE_ADDR + 0x30)
+// #define MAILBOX_REG_IS                ( ARCHI_MAILBOX_BASE_ADDR + 0x60)
+// #define MAILBOX_REG_IE                ( ARCHI_MAILBOX_BASE_ADDR + 0x70)
+// #define MAILBOX_H2C_DIR               ( 0  )
+// #define MAILBOX_C2H_DIR               ( 1  )
+// #define MAILBOX_FIFO_DEPTH            ( 16 )
 #define MAILBOX_REG_WRDATA            ( ARCHI_MAILBOX_BASE_ADDR + 0x00)
-#define MAILBOX_REG_RDDATA            ( ARCHI_MAILBOX_BASE_ADDR + 0x10)
-#define MAILBOX_REG_STATUS            ( ARCHI_MAILBOX_BASE_ADDR + 0x20)
-#define MAILBOX_REG_ERROR             ( ARCHI_MAILBOX_BASE_ADDR + 0x30)
+#define MAILBOX_REG_RDDATA            ( ARCHI_MAILBOX_BASE_ADDR + 0x04)
+#define MAILBOX_REG_STATUS            ( ARCHI_MAILBOX_BASE_ADDR + 0x08)
+#define MAILBOX_REG_ERROR             ( ARCHI_MAILBOX_BASE_ADDR + 0x0C)
 #define MAILBOX_REG_IS                ( ARCHI_MAILBOX_BASE_ADDR + 0x60)
 #define MAILBOX_REG_IE                ( ARCHI_MAILBOX_BASE_ADDR + 0x70)
 

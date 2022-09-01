@@ -27,27 +27,28 @@
 #define ARCHI_SOC_PERIPHERALS_ADDR    0x1A100000
 
 
-#define ARCHI_UART_OFFSET             0x00002000
-#define ARCHI_APB_SOC_CTRL_OFFSET     0x00003000
+#define ARCHI_UART_OFFSET             0x00122000
+#define ARCHI_APB_SOC_CTRL_OFFSET     0x00006000
 #define ARCHI_STDOUT_OFFSET           0x0000F000
-#define ARCHI_RAB_CFG_OFFSET          0x00030000
+#define ARCHI_RAB_CFG_OFFSET          0x00400000
+#define ARCHI_UART_ADDR               0x40000000
 
-#define ARCHI_UART_ADDR              ( ARCHI_SOC_PERIPHERALS_ADDR + ARCHI_UART_OFFSET )
+// #define ARCHI_UART_ADDR              ( ARCHI_SOC_PERIPHERALS_ADDR + ARCHI_UART_OFFSET )
 #define ARCHI_APB_SOC_CTRL_ADDR      ( ARCHI_SOC_PERIPHERALS_ADDR + ARCHI_APB_SOC_CTRL_OFFSET )
 #define ARCHI_STDOUT_ADDR            ( ARCHI_SOC_PERIPHERALS_ADDR + ARCHI_STDOUT_OFFSET )
 #if PULP_CHIP == CHIP_HERO_URANIA
-  // HACK: Ariane does not map the RAB directly so access it done through the host
+  // HACK: Ariane does not map the RAB directly so access it is done through the host
   #define ARCHI_RAB_CFG_ADDR            0x30000000
 #else
   #define ARCHI_RAB_CFG_ADDR           ( ARCHI_SOC_PERIPHERALS_ADDR + ARCHI_RAB_CFG_OFFSET )
 #endif
-#define ARCHI_MAILBOX_BASE_ADDR       0x1B800000
+#define ARCHI_MAILBOX_BASE_ADDR       0x10403000
 
 /*
  * CLUSTER
  */
 
-#define ARCHI_CLUSTER_ADDR              0x1B000000
+#define ARCHI_CLUSTER_ADDR              0x10000000
 #define ARCHI_CLUSTER_SIZE              0x00400000
 #define ARCHI_CLUSTER_GLOBAL_ADDR(cid)  (0x10000000 + (cid)*ARCHI_CLUSTER_SIZE)
 

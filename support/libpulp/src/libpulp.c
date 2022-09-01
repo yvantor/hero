@@ -216,7 +216,7 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
   pr_info("computer-cores: %d dm-cores: %d l1: %ldKiB l3: %ldKiB \n",
           dev->pci.compute_num, dev->pci.dm_num, dev->pci.l1_size / 1024, dev->pci.l3_size / 1024);
 
-  // mmap tcdm
+  // mmap Tightly-Coupled Data Memory (TCDM)
   dev->l1.size = dev->pci.l1_size;
   dev->l1.p_addr = dev->pci.l1_paddr;
   dev->l1.v_addr =
@@ -227,13 +227,24 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
   }
   pr_debug("TCDM mapped to virtual user space at %p.\n", dev->l1.v_addr);
 
+  // mmap L2 Scratchpad Memory (SCPM)
+  dev->l2.size = dev->pci.l2_size;
+  dev->l2.p_addr = dev->pci.l2_paddr;
+  dev->l2.v_addr =
+      mmap(NULL, dev->l2.size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L2_SCPM);
+  if (dev->l2.v_addr == MAP_FAILED) {
+    pr_error("mmap() failed for L2 SPM. %s\n", strerror(errno));
+    // return -EIO;
+  }
+  pr_debug("L2 SPM mapped to virtual user space at %p.\n", dev->l2.v_addr);
+
   // mmap reserved DDR space
   if (!g_l3) {
     g_l3 = malloc(sizeof(*g_l3));
     g_l3->size = dev->pci.l3_size;
     g_l3->p_addr = dev->pci.l3_paddr;
     g_l3->v_addr =
-        mmap(NULL, g_l3->size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L3);
+        mmap(NULL, g_l3->size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L3_MAIN);
     if (g_l3->v_addr == MAP_FAILED) {
       pr_error("mmap() failed for Shared L3 memory. %s\n", strerror(errno));
       // return -EIO;
@@ -292,30 +303,14 @@ int pulp_reset(pulp_dev_t *dev) {
   return 0;
 }
 
-int pulp_t_start(pulp_dev_t *dev) {
-
-  int ret;
-  ret = ioctl(dev->fd, PULPIOT_START_T);
-  asm volatile("": : :"memory");
-
-  return ret;
-}
-
 int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr) {
   uint32_t ret;
+  struct pulpios_reg sreg;
+  sreg.off = 0;
+  sreg.val = boot_addr;
 
-  pulp_t_start(dev);
-  
-  pr_trace("Write boot address\n");
-  for(int i = 0; i<8; i++) {
-    ret = pulp_periph_reg_write(dev, CPER_RI5CY_BOOTADDR0 + (i*0x4), (uint32_t)boot_addr);
-    if(ret)
-      return ret;
-  }
-  
-  pr_trace("Fetch enable cores\n");
-  ret = pulp_periph_reg_write(dev,CPER_CONTROLUNIT_FE,(uint32_t)0xff);
-  if(ret)
+  ret = ioctl(dev->fd, PULPIOC_PERIPH_START, &sreg);
+  if (ret)
     return ret;
   
   return 0;

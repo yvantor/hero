@@ -6,7 +6,7 @@ MEMORY
   L2                 : ORIGIN = 0x1c000000, LENGTH = 0x00080000
   L1                 : ORIGIN = 0x10000000, LENGTH = 0x00040000
   L1_aliased         : ORIGIN = 0x10000000, LENGTH = 0x00040000
-  L3                 : ORIGIN = 0x80000000, LENGTH = 0x08000000
+  L3                 : ORIGIN = 0x90000000, LENGTH = 0x10000000
 }
 
 /*

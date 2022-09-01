@@ -310,6 +310,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   struct pulpiot_val values;
   struct axi_tlb_entry tlbe;
   struct pulp_cluster *pc;
+  int i = 0;
   int timed_out;
   pc = file->private_data;
 
@@ -419,10 +420,20 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       return -EFAULT;
     return 0;
   }
+  case PULPIOC_PERIPH_START: {
+    if (copy_from_user(&sreg, p, sizeof(sreg)))
+      return -EFAULT;
+    cluster_periph_write(pc, CPER_INSTRSCACHE_FE, (uint32_t) 0xffffffff);
+    for (i = 0; i < 8; i++)
+      cluster_periph_write(pc, CPER_RI5CY_BOOTADDR0 + (i*4), sreg.val);
+    wakeup(pc);
+    cluster_periph_write(pc, CPER_CONTROLUNIT_FE, (uint32_t) 0xff);
+    return 0;
+  }
   case PULPIOC_QUADRANT_W: { 
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
-    dbg("c quadrant write write reg %d val %#x\n", sreg.off, sreg.val);
+    dbg("c quadrant write write reg %#x val %#x\n", sreg.off, sreg.val);
     quadrant_ctrl_reg_write(pc->quadrant_ctrl,sreg.off,sreg.val);
     return 0;
   }
@@ -430,7 +441,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     sreg.val = quadrant_ctrl_reg_read(pc->quadrant_ctrl,sreg.off);
-    dbg("c quadrant read @ reg %x : %x\n", sreg.off, sreg.val);
+    dbg("c quadrant read @ reg %#x : %#x\n", sreg.off, sreg.val);
     if (copy_to_user(p, &sreg, sizeof(sreg)))
       return -EFAULT;
     return 0;
@@ -454,12 +465,12 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       return -EFAULT;
     return timed_out;
   }
-  case(PULPIOT_START_T): {
-    host_cycles_end = 0;
-    host_cycles_start=read_csr(cycle);
-    printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
-    return 0;
-  }
+  // case(PULPIOT_START_T): {
+  //   host_cycles_end = 0;
+  //   host_cycles_start=read_csr(cycle);
+  //   printk(KERN_DEBUG "PULP: start @ cycle %lld\n", host_cycles_start);    
+  //   return 0;
+  // }
   default:
     return -ENOTTY;
   }
@@ -644,7 +655,13 @@ static int wakeup(struct pulp_cluster *pc) {
   uint32_t iso;
   int ret;
   
-  soc_reg_write(0,0x3); 
+  soc_reg_write(0,0x3);
+  do {
+    iso = get_isolation(quadrant_id);
+    if (iso != 0x3)
+      udelay(10);
+  } while (iso != 0x3 && --timeout);
+
   soc_reg_write(0,0x7);
   do {
     iso = get_isolation(quadrant_id);
@@ -653,33 +670,34 @@ static int wakeup(struct pulp_cluster *pc) {
   } while (iso != 0x7 && --timeout);
 
   if (iso != 0x7) {
+    info("Something went wrong with the wakeup.\n");
     set_reset(pc, 1);
     return -ETIMEDOUT;
   }
 
-  if (pc->irq_mbox != -1) {
-    ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
-    if (ret) {
-      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
-      return ret;
-    }
-  }
-  else {
-    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
-    return -1;
-  }
-
-  if (pc->irq_eoc != -1) {
-    ret=request_irq(pc->irq_eoc, pulp_isr, 0, "PULP", pc);
-    if (ret) {
-      printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
-      return ret;
-    }
-  }
-  else {
-    printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
-    return -1;
-  }
+  // if (pc->irq_mbox != -1) {
+  //   ret=request_irq(pc->irq_mbox, pulp_isr, 0, "PULP", pc);
+  //   if (ret) {
+  //     printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+  //     return ret;
+  //   }
+  // }
+  // else {
+  //   printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_mbox);
+  //   return -1;
+  // }
+  // 
+  // if (pc->irq_eoc != -1) {
+  //   ret=request_irq(pc->irq_eoc, pulp_isr, 0, "PULP", pc);
+  //   if (ret) {
+  //     printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+  //     return ret;
+  //   }
+  // }
+  // else {
+  //   printk(KERN_WARNING "PULP: Error requesting IRQ %d.\n", pc->irq_eoc);
+  //   return -1;
+  // }
 
   return 0;
 }
@@ -882,7 +900,7 @@ static int pulp_probe(struct platform_device *pdev) {
     goto out;
   }
   pc->pci.periph_size = resource_size(res);
-  dev_info(&pdev->dev, "peripherals virt %px\n", pc->pbase);
+  dev_info(&pdev->dev, "peripherals virt %px (phys: %px)\n", pc->pbase, res);
 
   // SPM is mapped as memory
   res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
