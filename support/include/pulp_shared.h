@@ -52,9 +52,9 @@ struct pulp_cluster_info {
  * Macros to calculate the base address for mmap'ing regions to user space. Must be a multple of
  * PAGE_SHIFT
  */
-#define PULP_MMAP_L3 (0 * sysconf(_SC_PAGE_SIZE))
-#define PULP_MMAP_TCDM (1 * sysconf(_SC_PAGE_SIZE))
-#define PULP_MMAP_L2 (2 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L3_MAIN (0 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_TCDM    (1 * sysconf(_SC_PAGE_SIZE))
+#define PULP_MMAP_L2_SCPM (2 * sysconf(_SC_PAGE_SIZE))
 
 typedef enum {
   inout = 0,

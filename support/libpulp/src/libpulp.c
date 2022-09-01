@@ -218,7 +218,7 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
   pr_info("computer-cores: %d dm-cores: %d l1: %ldKiB l3: %ldKiB \n",
           dev->pci.compute_num, dev->pci.dm_num, dev->pci.l1_size / 1024, dev->pci.l3_size / 1024);
 
-  // mmap tcdm
+  // mmap Tightly-Coupled Data Memory (TCDM)
   dev->l1.size = dev->pci.l1_size;
   dev->l1.p_addr = dev->pci.l1_paddr;
   dev->l1.v_addr =
@@ -229,16 +229,16 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
   }
   pr_debug("TCDM mapped to virtual user space at %p.\n", dev->l1.v_addr);
 
-  // mmap tcdm
+  // mmap L2 Scratchpad Memory (SCPM)
   dev->l2.size = dev->pci.l2_size;
   dev->l2.p_addr = dev->pci.l2_paddr;
   dev->l2.v_addr =
-      mmap(NULL, dev->l2.size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L2);
+      mmap(NULL, dev->l2.size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L2_SCPM);
   if (dev->l2.v_addr == MAP_FAILED) {
-    pr_error("mmap() failed for L2. %s\n", strerror(errno));
+    pr_error("mmap() failed for L2 SPM. %s\n", strerror(errno));
     // return -EIO;
   }
-  pr_debug("L2SPM mapped to virtual user space at %p.\n", dev->l2.v_addr);
+  pr_debug("L2 SPM mapped to virtual user space at %p.\n", dev->l2.v_addr);
 
   // mmap reserved DDR space
   if (!g_l3) {
@@ -246,7 +246,7 @@ int pulp_mmap(pulp_dev_t *dev, char *fname) {
     g_l3->size = dev->pci.l3_size;
     g_l3->p_addr = dev->pci.l3_paddr;
     g_l3->v_addr =
-        mmap(NULL, g_l3->size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L3);
+        mmap(NULL, g_l3->size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, PULP_MMAP_L3_MAIN);
     if (g_l3->v_addr == MAP_FAILED) {
       pr_error("mmap() failed for Shared L3 memory. %s\n", strerror(errno));
       // return -EIO;
@@ -307,13 +307,12 @@ int pulp_reset(pulp_dev_t *dev) {
 
 int pulp_exe_start(pulp_dev_t *dev, uint32_t boot_addr) {
   uint32_t ret;
-  uint32_t boot_addr_test;
   struct pulpios_reg sreg;
   sreg.off = 0;
   sreg.val = boot_addr;
 
-  ret = ioctl(dev->fd,PULPIOC_PERIPH_START,&sreg);
-  if(ret)
+  ret = ioctl(dev->fd, PULPIOC_PERIPH_START, &sreg);
+  if (ret)
     return ret;
   
   return 0;

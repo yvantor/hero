@@ -450,7 +450,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
   case PULPIOC_QUADRANT_W: { 
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
-    dbg("c quadrant write write reg %d val %#x\n", sreg.off, sreg.val);
+    dbg("c quadrant write write reg %#x val %#x\n", sreg.off, sreg.val);
     quadrant_ctrl_reg_write(pc->quadrant_ctrl,sreg.off,sreg.val);
     return 0;
   }
@@ -458,7 +458,7 @@ static long pulp_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     if (copy_from_user(&sreg, p, sizeof(sreg)))
       return -EFAULT;
     sreg.val = quadrant_ctrl_reg_read(pc->quadrant_ctrl,sreg.off);
-    dbg("c quadrant read @ reg %x : %x\n", sreg.off, sreg.val);
+    dbg("c quadrant read @ reg %#x : %#x\n", sreg.off, sreg.val);
     if (copy_to_user(p, &sreg, sizeof(sreg)))
       return -EFAULT;
     return 0;
@@ -904,7 +904,7 @@ static int pulp_probe(struct platform_device *pdev) {
     goto out;
   }
   pc->pci.periph_size = resource_size(res);
-  dev_info(&pdev->dev, "peripherals virt %px\n", pc->pbase);
+  dev_info(&pdev->dev, "peripherals virt %px (phys: %px)\n", pc->pbase, res);
 
   // SPM is mapped as memory
   res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
