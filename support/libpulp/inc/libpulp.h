@@ -43,7 +43,6 @@ typedef struct {
   PulpSubDev clusters;
   struct pulp_cluster_info pci;
   PulpSubDev l1;
-  PulpSubDev l2;
   PulpSubDev periph;
   PulpSubDev l3;
   PulpSubDev l2;
