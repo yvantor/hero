@@ -49,7 +49,7 @@ static char** stdout_ptr;
 
 static RT_FC_DATA rt_fc_lock_t __rt_io_fc_lock;
 
-#if defined(__RT_USE_UART)
+#if defined(__RT_USE_UART) || PULP_CHIP == CHIP_HERO_URANIA
 static rt_uart_t *_rt_io_uart;
 static rt_event_t __rt_io_event;
 static rt_event_t *__rt_io_event_current;
@@ -345,7 +345,9 @@ static void tfp_putc(void *data, char c)
     *(uint32_t *)(long)(0x1A104000 + (rt_core_id() << 3) + (rt_cluster_id() << 7)) = c;
     return;
   }
-
+  #if PULP_CHIP == CHIP_HERO_URANIA
+    __rt_uart_sendchar(_rt_io_uart, c);
+  #endif
   // Obtain pointer to stdout buffer of core.
   char* core_stdout_ptr = stdout_ptr[rt_core_id()];
   // Store character to buffer.
@@ -487,7 +489,13 @@ int _prf_locked(int (*func)(), void *dest, char *format, va_list vargs)
   int err;
 
   __rt_io_lock();
+  #if PULP_CHIP == CHIP_HERO_URANIA
+    rt_uart_conf_t conf;
+    
+    rt_uart_conf_init(&conf);
 
+    _rt_io_uart = __rt_uart_open(rt_iodev_uart_channel(), &conf, NULL, NULL);
+  #endif
   err =  _prf(func, dest, format, vargs);
 
   __rt_io_unlock();

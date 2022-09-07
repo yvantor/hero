@@ -160,6 +160,8 @@ static inline void rt_uart_cluster_wait(rt_uart_req_t *req);
 
 rt_uart_t* __rt_uart_open(int channel, rt_uart_conf_t *conf, rt_event_t *event, char *name);
 
+void __rt_uart_sendchar(rt_uart_t *uart, const char c);
+
 #if defined(UDMA_VERSION)
 
 static inline void rt_uart_write(rt_uart_t *uart, void *buffer, size_t size, rt_event_t *event)

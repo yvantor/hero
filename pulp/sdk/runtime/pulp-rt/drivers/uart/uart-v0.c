@@ -39,8 +39,6 @@
 
 #define __RT_UART_BAUDRATE 115200
 
-
-
 #define UART_REG_RBR ( ARCHI_UART_ADDR + 0x00)
 #define UART_REG_DLL ( ARCHI_UART_ADDR + 0x00)
 #define UART_REG_THR ( ARCHI_UART_ADDR + 0x00)
@@ -80,7 +78,7 @@ static void __rt_uart_wait_tx_done(rt_uart_t *uart)
 
 static void __rt_uart_setup(rt_uart_t *uart)
 {
-  int div =  __rt_freq_periph_get() / uart->baudrate / 16 - 1;
+  int div =  (__rt_freq_periph_get() / uart->baudrate) >> 4;
 
 /*
  * clk_counter  Clock counter value that is used to derive the UART clock.
@@ -95,7 +93,7 @@ static void __rt_uart_setup(rt_uart_t *uart)
   *(volatile unsigned int*)(UART_REG_DLL) =  div       & 0xFF;
   *(volatile unsigned int*)(UART_REG_FCR) = 0xA7; //enables 16byte FIFO and clear FIFOs
   *(volatile unsigned int*)(UART_REG_LCR) = 0x03; //sets 8N1 and set DLAB to 0
-
+  
   *(volatile unsigned int*)(UART_REG_IER) = ((*(volatile unsigned int*)(UART_REG_IER)) & 0xF0) | 0x02; // set IER (interrupt enable register) on UART
   *(volatile unsigned int*)(UART_REG_MCR) = 0x20; //enable automatic flow control
 }
@@ -247,3 +245,14 @@ void __rt_uart_write(rt_uart_t *uart, void *buffer, size_t len, rt_event_t *even
   if (event) rt_event_enqueue(event);
 }
 
+
+void __rt_uart_sendchar(rt_uart_t *uart, const char c) {
+  if (!uart->active)
+    return;
+  // wait until there is space in the fifo
+  while( (*(volatile unsigned int*)(UART_REG_LSR) & 0x20) == 0);
+  // load FIFO
+  *(volatile unsigned int*)(UART_REG_THR) = c;
+
+  __rt_uart_wait_tx_done(uart);
+}

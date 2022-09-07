@@ -73,7 +73,7 @@ static inline int rt_debug_config_werror();
 
 #define rt_msg(fmt, x...) \
   do { \
-    printf("[\033[35mRT(%d,%d)\033[0m] " fmt, rt_cluster_id(), rt_core_id(), ##x); \
+    printf("[\033[35mRT(%d,%d)\033[0m] \n\r" fmt, rt_cluster_id(), rt_core_id(), ##x); \
   } while(0)
 
 #define rt_debug(fmt, x...) \

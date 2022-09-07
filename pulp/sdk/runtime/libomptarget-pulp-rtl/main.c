@@ -4,7 +4,7 @@
 // from offload-manager.c //
 ////////////////////////////
 
-#define DEBUG_LEVEL_OFFLOAD_MANAGER 0
+#define DEBUG_LEVEL_OFFLOAD_MANAGER 10
 
 /*
  * Copyright (C) 2018 ETH Zurich and University of Bologna
